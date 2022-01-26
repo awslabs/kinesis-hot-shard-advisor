@@ -8,7 +8,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/kinesis"
 	"github.com/aws/aws-sdk-go-v2/service/kinesis/types"
-	"github.com/schollz/progressbar/v3"
+	"github.com/cheggaaa/pb"
 )
 
 type cmd struct {
@@ -32,8 +32,7 @@ func (c *cmd) Run() error {
 		return err
 	}
 	fmt.Printf("OK!\n")
-	pb := progressbar.Default(int64(len(shards)), "Analyzing shards")
-	pb.RenderBlank()
+	bar := pb.StartNew(len(shards))
 	for _, shard := range shards {
 		if shard.ParentShardId == nil {
 			err := c.enumerate(ctx, shard.ShardId)
@@ -41,8 +40,9 @@ func (c *cmd) Run() error {
 				return err
 			}
 		}
-		pb.Add(1)
+		bar.Increment()
 	}
+	bar.Finish()
 	c.print()
 	return nil
 }
