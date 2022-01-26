@@ -1,5 +1,7 @@
 package main
 
+//go run . -stream "lab3"
+
 import (
 	"context"
 	"flag"
