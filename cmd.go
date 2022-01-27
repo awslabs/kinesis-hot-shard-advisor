@@ -19,6 +19,7 @@ type cmd struct {
 	kc            *kinesis.Client
 	cutoff        time.Time
 	since         time.Duration
+	limit         int
 }
 
 type record struct {
@@ -140,7 +141,8 @@ func (c *cmd) print() {
 	fmt.Println()
 	fmt.Println("Usage     Count      Split Candidate          Key")
 	fmt.Println("――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――")
-	for _, i := range sorted {
+	for idx := 0; idx < c.limit; idx++ {
+		i := sorted[idx]
 		fmt.Printf("%4.1f%%     %-6d     %s     %s\n", (float32(i.count)/float32(total))*100, i.count, c.splitCandidate(i.partitionKey), i.partitionKey)
 	}
 }
@@ -153,7 +155,7 @@ func (c *cmd) splitCandidate(key string) string {
 	return ""
 }
 
-func newCmd(kc *kinesis.Client, stream string, since time.Duration) *cmd {
+func newCmd(kc *kinesis.Client, stream string, since time.Duration, limit int) *cmd {
 	return &cmd{
 		stream:        stream,
 		count:         make(map[string]int),
@@ -162,5 +164,6 @@ func newCmd(kc *kinesis.Client, stream string, since time.Duration) *cmd {
 		kc:            kc,
 		cutoff:        time.Now(),
 		since:         since,
+		limit:         limit,
 	}
 }

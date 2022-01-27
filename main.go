@@ -16,6 +16,7 @@ import (
 type options struct {
 	stream string
 	since  string
+	limit  int
 }
 
 func (o *options) validate() bool {
@@ -31,6 +32,7 @@ var opts = &options{}
 func init() {
 	flag.StringVar(&opts.stream, "stream", "", "stream name")
 	flag.StringVar(&opts.since, "since", "", "analyse the stream since a specific point in time")
+	flag.IntVar(&opts.limit, "limit", 10, "max number of keys to display")
 }
 
 func main() {
@@ -54,7 +56,7 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	err = newCmd(kinesis.NewFromConfig(cfg), opts.stream, since).Run()
+	err = newCmd(kinesis.NewFromConfig(cfg), opts.stream, since, opts.limit).Run()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
