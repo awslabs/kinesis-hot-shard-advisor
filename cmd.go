@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/kinesis"
 	"github.com/aws/aws-sdk-go-v2/service/kinesis/types"
 	"github.com/cheggaaa/pb"
+	"github.com/fatih/color"
 )
 
 type cmd struct {
@@ -29,12 +30,12 @@ type record struct {
 
 func (c *cmd) Run() error {
 	ctx := context.Background()
-	fmt.Printf("Listing shards for stream %s...", c.stream)
+	fmt.Print(color.YellowString("Listing shards for stream %s...", c.stream))
 	shards, err := c.listShards(ctx)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("OK!\n")
+	color.Yellow("OK!")
 	bar := pb.StartNew(len(shards))
 	for _, shard := range shards {
 		if shard.ParentShardId == nil {
@@ -139,8 +140,8 @@ func (c *cmd) countAndSort() ([]*record, int) {
 func (c *cmd) print() {
 	sorted, total := c.countAndSort()
 	fmt.Println()
-	fmt.Println("Usage     Count      Split Candidate          Key")
-	fmt.Println("――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――")
+	color.Green("Usage     Count      Split Candidate          Key")
+	color.Green("――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――")
 	for idx := 0; idx < c.limit; idx++ {
 		i := sorted[idx]
 		fmt.Printf("%4.1f%%     %-6d     %s     %s\n", (float32(i.count)/float32(total))*100, i.count, c.splitCandidate(i.partitionKey), i.partitionKey)
