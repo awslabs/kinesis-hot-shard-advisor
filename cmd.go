@@ -137,8 +137,11 @@ func (c *cmd) countAndSort() ([]*record, int) {
 
 func (c *cmd) print() {
 	sorted, total := c.countAndSort()
+	fmt.Println()
+	fmt.Println("Usage     Count      Split Candidate          Key")
+	fmt.Println("――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――")
 	for _, i := range sorted {
-		fmt.Printf("%4.1f%% %6d %s %s\n", (float32(i.count)/float32(total))*100, i.count, i.partitionKey, c.splitCandidate(i.partitionKey))
+		fmt.Printf("%4.1f%%     %-6d     %s     %s\n", (float32(i.count)/float32(total))*100, i.count, c.splitCandidate(i.partitionKey), i.partitionKey)
 	}
 }
 
