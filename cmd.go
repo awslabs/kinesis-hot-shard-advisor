@@ -12,11 +12,13 @@ import (
 )
 
 type cmd struct {
-	stream string
-	count  map[string]int
-	kc     *kinesis.Client
-	cutoff time.Time
-	since  time.Duration
+	stream        string
+	count         map[string]int
+	shardTree     map[string][]string // tracks each shard id and child shard ids (if there's any)
+	keyToShardMap map[string]string   // tracks each key and last shard id it appeared in
+	kc            *kinesis.Client
+	cutoff        time.Time
+	since         time.Duration
 }
 
 type record struct {
@@ -98,11 +100,16 @@ func (c *cmd) enumerate(ctx context.Context, shardID *string) error {
 		si = gro.NextShardIterator
 		for _, r := range gro.Records {
 			c.count[*r.PartitionKey] = c.count[*r.PartitionKey] + 1
+			c.keyToShardMap[*r.PartitionKey] = *shardID
 		}
-		for _, cs := range gro.ChildShards {
-			err := c.enumerate(ctx, cs.ShardId)
-			if err != nil {
-				return err
+		if len(gro.ChildShards) > 0 {
+			c.shardTree[*shardID] = make([]string, len(gro.ChildShards))
+			for i, cs := range gro.ChildShards {
+				err := c.enumerate(ctx, cs.ShardId)
+				if err != nil {
+					return err
+				}
+				c.shardTree[*shardID][i] = *cs.ShardId
 			}
 		}
 		if *gro.MillisBehindLatest == 0 {
@@ -131,16 +138,26 @@ func (c *cmd) countAndSort() ([]*record, int) {
 func (c *cmd) print() {
 	sorted, total := c.countAndSort()
 	for _, i := range sorted {
-		fmt.Printf("%4.1f%% %6d %s\n", (float32(i.count)/float32(total))*100, i.count, i.partitionKey)
+		fmt.Printf("%4.1f%% %6d %s %s\n", (float32(i.count)/float32(total))*100, i.count, i.partitionKey, c.splitCandidate(i.partitionKey))
 	}
+}
+
+func (c *cmd) splitCandidate(key string) string {
+	ls := c.keyToShardMap[key]
+	if len(c.shardTree[ls]) == 0 {
+		return ls
+	}
+	return ""
 }
 
 func newCmd(kc *kinesis.Client, stream string, since time.Duration) *cmd {
 	return &cmd{
-		stream: stream,
-		count:  make(map[string]int),
-		kc:     kc,
-		cutoff: time.Now(),
-		since:  since,
+		stream:        stream,
+		count:         make(map[string]int),
+		shardTree:     make(map[string][]string),
+		keyToShardMap: make(map[string]string),
+		kc:            kc,
+		cutoff:        time.Now(),
+		since:         since,
 	}
 }
