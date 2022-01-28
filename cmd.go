@@ -30,7 +30,12 @@ type record struct {
 
 func (c *cmd) Run() error {
 	ctx := context.Background()
-	fmt.Print(color.YellowString("Listing shards for stream %s...", c.stream))
+	//fmt.Print(color.YellowString("Listing shards for stream %s...", c.stream))
+	fmt.Print(color.YellowString("Listing shards for stream\n"))
+	fmt.Print(color.YellowString("Stream name %s...", c.stream))
+	a := fmt.Sprintf("Since:%v Limit: %d ", c.since, c.limit)
+	fmt.Print(color.YellowString(a))
+
 	shards, err := c.listShards(ctx)
 	if err != nil {
 		return err
@@ -114,6 +119,7 @@ func (c *cmd) enumerate(ctx context.Context, shardID *string) error {
 				c.shardTree[*shardID][i] = *cs.ShardId
 			}
 		}
+
 		if *gro.MillisBehindLatest == 0 {
 			break
 		}
@@ -144,7 +150,7 @@ func (c *cmd) print() {
 	color.Green("――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――")
 	for idx := 0; idx < c.limit; idx++ {
 		i := sorted[idx]
-		fmt.Printf("%4.1f%%     %-6d     %s     %s\n", (float32(i.count)/float32(total))*100, i.count, c.splitCandidate(i.partitionKey), i.partitionKey)
+		fmt.Printf("%4.1f%%     %-6d     %20s     %s\n", (float32(i.count)/float32(total))*100, i.count, c.splitCandidate(i.partitionKey), i.partitionKey)
 	}
 }
 
