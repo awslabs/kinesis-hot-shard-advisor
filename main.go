@@ -39,6 +39,7 @@ func main() {
 	var (
 		since time.Duration
 		err   error
+		ctx   context.Context
 	)
 	flag.Parse()
 	if !opts.validate() {
@@ -51,15 +52,26 @@ func main() {
 			os.Exit(1)
 		}
 	}
-	cfg, err := config.LoadDefaultConfig(context.Background())
+	ctx = context.Background()
+	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	err = newCmd(kinesis.NewFromConfig(cfg), opts.stream, since, opts.limit).Run()
+	cms, err := newCMS(opts.stream, kinesis.NewFromConfig(cfg), since, 10, 1000000, opts.limit)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+	err = cms.Run(ctx)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	// err := newCmd(kinesis.NewFromConfig(cfg), opts.stream, since, opts.limit).Run()
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	os.Exit(1)
+	// }
 	os.Exit(0)
 }

@@ -25,6 +25,7 @@ type cmd struct {
 
 type record struct {
 	partitionKey string
+	shardID      string
 	count        int
 }
 
