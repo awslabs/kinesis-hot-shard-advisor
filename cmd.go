@@ -149,6 +149,10 @@ func (c *cmd) print() {
 	color.Green("Usage     Count      Split Candidate          Key")
 	color.Green("――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――")
 	for idx := 0; idx < c.limit; idx++ {
+		if len(sorted) == 0 {
+			fmt.Printf("** No record found for the specified time!! ** ")
+			break
+		}
 		i := sorted[idx]
 		fmt.Printf("%4.1f%%     %-6d     %20s     %s\n", (float32(i.count)/float32(total))*100, i.count, c.splitCandidate(i.partitionKey), i.partitionKey)
 	}
