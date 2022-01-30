@@ -33,8 +33,8 @@ func (c *cmd) Run() error {
 	//fmt.Print(color.YellowString("Listing shards for stream %s...", c.stream))
 	fmt.Print(color.YellowString("Listing shards for stream\n"))
 	fmt.Print(color.YellowString("Stream name %s...", c.stream))
-	a := fmt.Sprintf("Since:%v Limit: %d ", c.since, c.limit)
-	fmt.Print(color.YellowString(a))
+	msg := fmt.Sprintf("Since:%v Limit: %d ", c.since, c.limit)
+	fmt.Print(color.YellowString(msg))
 
 	shards, err := c.listShards(ctx)
 	if err != nil {
@@ -119,10 +119,10 @@ func (c *cmd) enumerate(ctx context.Context, shardID *string) error {
 				c.shardTree[*shardID][i] = *cs.ShardId
 			}
 		}
-
 		if *gro.MillisBehindLatest == 0 {
 			break
 		}
+
 	}
 	return nil
 }
