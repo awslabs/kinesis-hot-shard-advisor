@@ -21,4 +21,4 @@ test: build
 	CGO_ENABLED=0 AWS_REGION="${AWS_REGION}" go test -timeout 5s -covermode=count -coverpkg="khs" -coverprofile=build/cover.out ./...
 
 install: test build
-	cp "./build/ksh${TARGET}" /usr/local/bin/
+	cp "./build/khs${TARGET}" /usr/local/bin/
