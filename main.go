@@ -17,6 +17,7 @@ type options struct {
 	stream string
 	since  string
 	limit  int
+	cms    bool
 }
 
 func (o *options) validate() bool {
@@ -33,6 +34,7 @@ func init() {
 	flag.StringVar(&opts.stream, "stream", "", "stream name")
 	flag.StringVar(&opts.since, "since", "", "analyse the stream since a specific point in time")
 	flag.IntVar(&opts.limit, "limit", 10, "max number of keys to display")
+	flag.BoolVar(&opts.cms, "cms", false, "use count-min-sketch (experimental)")
 }
 
 func main() {
@@ -58,20 +60,23 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	cms, err := newCMS(opts.stream, kinesis.NewFromConfig(cfg), since, 10, 1000000, opts.limit)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+	if opts.cms {
+		cms, err := newCMS(opts.stream, kinesis.NewFromConfig(cfg), since, 10, 1000000, opts.limit)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		err = cms.Run(ctx)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+	} else {
+		err := newCmd(kinesis.NewFromConfig(cfg), opts.stream, since, opts.limit).Run()
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
 	}
-	err = cms.Run(ctx)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	// err := newCmd(kinesis.NewFromConfig(cfg), opts.stream, since, opts.limit).Run()
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	os.Exit(1)
-	// }
 	os.Exit(0)
 }
