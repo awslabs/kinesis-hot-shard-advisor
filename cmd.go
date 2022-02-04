@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"sort"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/kinesis"
@@ -12,15 +12,9 @@ import (
 	"github.com/fatih/color"
 )
 
-type cmd struct {
-	stream        string
-	count         map[string]int
-	shardTree     map[string][]string // tracks each shard id and child shard ids (if there's any)
-	keyToShardMap map[string]string   // tracks each key and last shard id it appeared in
-	kc            *kinesis.Client
-	cutoff        time.Time
-	since         time.Duration
-	limit         int
+type Aggregator interface {
+	Aggregate(shardID string, record *types.Record)
+	Print(shardTree map[string][]string, limit int)
 }
 
 type record struct {
@@ -29,15 +23,18 @@ type record struct {
 	count        int
 }
 
-func (c *cmd) Run() error {
-	ctx := context.Background()
-	//fmt.Print(color.YellowString("Listing shards for stream %s...", c.stream))
-	fmt.Print(color.YellowString("Listing shards for stream\n"))
-	fmt.Print(color.YellowString("Stream name %s...", c.stream))
-	msg := fmt.Sprintf("Since:%v Limit: %d ", c.since, c.limit)
-	fmt.Print(color.YellowString(msg))
+type cmd struct {
+	streamName  string
+	kds         kds
+	aggregators []Aggregator
+	since       time.Duration
+	shardTree   map[string][]string
+	limit       int
+}
 
-	shards, err := c.listShards(ctx)
+func (i *cmd) Start(ctx context.Context) error {
+	fmt.Print(color.YellowString("Listing shards for stream %s...", i.streamName))
+	shards, err := i.listShards(ctx, i.streamName)
 	if err != nil {
 		return err
 	}
@@ -45,7 +42,7 @@ func (c *cmd) Run() error {
 	bar := pb.StartNew(len(shards))
 	for _, shard := range shards {
 		if shard.ParentShardId == nil {
-			err := c.enumerate(ctx, shard.ShardId)
+			err := i.enumerate(ctx, shard.ShardId)
 			if err != nil {
 				return err
 			}
@@ -53,18 +50,73 @@ func (c *cmd) Run() error {
 		bar.Increment()
 	}
 	bar.Finish()
-	c.print()
+	i.print()
 	return nil
 }
 
-func (c *cmd) listShards(ctx context.Context) ([]types.Shard, error) {
+func (i *cmd) enumerate(ctx context.Context, shardID *string) error {
+	var (
+		si *string
+	)
+	gsii := &kinesis.GetShardIteratorInput{
+		StreamName:        &i.streamName,
+		ShardId:           shardID,
+		ShardIteratorType: types.ShardIteratorTypeTrimHorizon,
+	}
+	if i.since != 0 {
+		is := time.Now().UTC().Add(i.since * -1)
+		gsii.ShardIteratorType = types.ShardIteratorTypeAtTimestamp
+		gsii.Timestamp = &is
+	}
+	iter, err := i.kds.GetShardIterator(ctx, gsii)
+	if err != nil {
+		return err
+	}
+	si = iter.ShardIterator
+	for si != nil {
+		gro, err := i.kds.GetRecords(ctx, &kinesis.GetRecordsInput{
+			ShardIterator: si,
+		})
+		if err != nil {
+			return err
+		}
+		si = gro.NextShardIterator
+		for _, r := range gro.Records {
+			wg := sync.WaitGroup{}
+			wg.Add(len(i.aggregators))
+			for _, a := range i.aggregators {
+				go func(a Aggregator) {
+					a.Aggregate(*shardID, &r)
+					wg.Done()
+				}(a)
+			}
+			wg.Wait()
+		}
+		if len(gro.ChildShards) > 0 {
+			i.shardTree[*shardID] = make([]string, len(gro.ChildShards))
+			for idx, cs := range gro.ChildShards {
+				err := i.enumerate(ctx, cs.ShardId)
+				if err != nil {
+					return err
+				}
+				i.shardTree[*shardID][idx] = *cs.ShardId
+			}
+		}
+		if *gro.MillisBehindLatest == 0 {
+			break
+		}
+	}
+	return nil
+}
+
+func (i *cmd) listShards(ctx context.Context, streamName string) ([]types.Shard, error) {
 	var (
 		ntoken *string
 	)
 	r := make([]types.Shard, 0)
 	for {
-		lso, err := c.kc.ListShards(ctx, &kinesis.ListShardsInput{
-			StreamName: &c.stream,
+		lso, err := i.kds.ListShards(ctx, &kinesis.ListShardsInput{
+			StreamName: &streamName,
 			NextToken:  ntoken,
 		})
 		if err != nil {
@@ -79,103 +131,18 @@ func (c *cmd) listShards(ctx context.Context) ([]types.Shard, error) {
 	return r, nil
 }
 
-func (c *cmd) enumerate(ctx context.Context, shardID *string) error {
-	var (
-		si *string
-	)
-	gsii := &kinesis.GetShardIteratorInput{
-		StreamName:        &c.stream,
-		ShardId:           shardID,
-		ShardIteratorType: types.ShardIteratorTypeTrimHorizon,
-	}
-	if c.since != 0 {
-		is := time.Now().UTC().Add(c.since * -1)
-		gsii.ShardIteratorType = types.ShardIteratorTypeAtTimestamp
-		gsii.Timestamp = &is
-	}
-	iter, err := c.kc.GetShardIterator(ctx, gsii)
-	if err != nil {
-		return err
-	}
-	si = iter.ShardIterator
-	for si != nil {
-		gro, err := c.kc.GetRecords(ctx, &kinesis.GetRecordsInput{
-			ShardIterator: si,
-		})
-		if err != nil {
-			return err
-		}
-		si = gro.NextShardIterator
-		for _, r := range gro.Records {
-			c.count[*r.PartitionKey] = c.count[*r.PartitionKey] + 1
-			c.keyToShardMap[*r.PartitionKey] = *shardID
-		}
-		if len(gro.ChildShards) > 0 {
-			c.shardTree[*shardID] = make([]string, len(gro.ChildShards))
-			for i, cs := range gro.ChildShards {
-				err := c.enumerate(ctx, cs.ShardId)
-				if err != nil {
-					return err
-				}
-				c.shardTree[*shardID][i] = *cs.ShardId
-			}
-		}
-		if *gro.MillisBehindLatest == 0 {
-			break
-		}
-
-	}
-	return nil
-}
-
-func (c *cmd) countAndSort() ([]*record, int) {
-	t := 0
-	out := make([]*record, 0)
-	for k, v := range c.count {
-		out = append(out, &record{
-			partitionKey: k,
-			count:        v,
-		})
-		t += v
-	}
-	sort.Slice(out, func(i, j int) bool {
-		return out[i].count > out[j].count
-	})
-	return out, t
-}
-
-func (c *cmd) print() {
-	sorted, total := c.countAndSort()
-	fmt.Println()
-	color.Green("Usage     Count      Split Candidate          Key")
-	color.Green("――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――")
-	for idx := 0; idx < c.limit; idx++ {
-		if len(sorted) == 0 {
-			fmt.Printf("** No record found for the specified time!! ** ")
-			break
-		}
-		i := sorted[idx]
-		fmt.Printf("%4.1f%%     %-6d     %20s     %s\n", (float32(i.count)/float32(total))*100, i.count, c.splitCandidate(i.partitionKey), i.partitionKey)
+func (i *cmd) print() {
+	for _, a := range i.aggregators {
+		a.Print(i.shardTree, i.limit)
 	}
 }
 
-func (c *cmd) splitCandidate(key string) string {
-	ls := c.keyToShardMap[key]
-	if len(c.shardTree[ls]) == 0 {
-		return ls
-	}
-	return ""
-}
-
-func newCmd(kc *kinesis.Client, stream string, since time.Duration, limit int) *cmd {
+func newCMD(streamName string, kds kds, aggregators []Aggregator, limit int, since time.Duration) *cmd {
 	return &cmd{
-		stream:        stream,
-		count:         make(map[string]int),
-		shardTree:     make(map[string][]string),
-		keyToShardMap: make(map[string]string),
-		kc:            kc,
-		cutoff:        time.Now(),
-		since:         since,
-		limit:         limit,
+		kds:         kds,
+		streamName:  streamName,
+		aggregators: aggregators,
+		limit:       limit,
+		since:       since,
 	}
 }

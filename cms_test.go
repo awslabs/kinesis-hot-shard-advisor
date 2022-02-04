@@ -2,7 +2,6 @@ package main
 
 import (
 	"testing"
-	"time"
 )
 
 var c *cms
@@ -26,7 +25,7 @@ func BenchmarkNewCMS10x1000000x10(b *testing.B) {
 func benchmarkNewCMS(b *testing.B, hashes, space, limit int) {
 	var err error
 	for i := 0; i < b.N; i++ {
-		c, err = newCMS("foo", nil, time.Duration(0), hashes, space, limit)
+		c, err = newCMS(hashes, space, limit)
 		if err != nil {
 			b.FailNow()
 		}
