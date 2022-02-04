@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/kinesis"
 	"github.com/aws/aws-sdk-go-v2/service/kinesis/types"
@@ -27,9 +26,9 @@ type cmd struct {
 	streamName  string
 	kds         kds
 	aggregators []Aggregator
-	since       time.Duration
 	shardTree   map[string][]string
 	limit       int
+	period      *period
 }
 
 func (i *cmd) Start(ctx context.Context) error {
@@ -63,10 +62,9 @@ func (i *cmd) enumerate(ctx context.Context, shardID *string) error {
 		ShardId:           shardID,
 		ShardIteratorType: types.ShardIteratorTypeTrimHorizon,
 	}
-	if i.since != 0 {
-		is := time.Now().UTC().Add(i.since * -1)
+	if i.period != nil {
 		gsii.ShardIteratorType = types.ShardIteratorTypeAtTimestamp
-		gsii.Timestamp = &is
+		gsii.Timestamp = &i.period.start
 	}
 	iter, err := i.kds.GetShardIterator(ctx, gsii)
 	if err != nil {
@@ -137,12 +135,12 @@ func (i *cmd) print() {
 	}
 }
 
-func newCMD(streamName string, kds kds, aggregators []Aggregator, limit int, since time.Duration) *cmd {
+func newCMD(streamName string, kds kds, aggregators []Aggregator, limit int, p *period) *cmd {
 	return &cmd{
 		kds:         kds,
 		streamName:  streamName,
 		aggregators: aggregators,
 		limit:       limit,
-		since:       since,
+		period:      p,
 	}
 }
