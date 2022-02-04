@@ -111,6 +111,7 @@ func main() {
 	} else {
 		aggregators = append(aggregators, newCount())
 	}
+	aggregators = append(aggregators, newIngress())
 	err = newCMD(opts.stream, kinesis.NewFromConfig(cfg), aggregators, opts.limit, p).Start(ctx)
 	if err != nil {
 		fmt.Println(err)
