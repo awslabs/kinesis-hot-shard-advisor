@@ -8,28 +8,31 @@ import (
 )
 
 type ingress struct {
-	count map[string]map[int64]int64
+	min   int64
+	usage []float64
 }
 
 func (i *ingress) Aggregate(shardID string, record *types.Record) {
 	t := record.ApproximateArrivalTimestamp.Round(time.Second).Unix()
-	if _, ok := i.count[shardID]; !ok {
-		i.count[shardID] = make(map[int64]int64)
-	}
-	i.count[shardID][t] = i.count[shardID][t] + int64(len(record.Data))
+	c := int64(len(i.usage))
+	s := int64(c - i.min%c)
+	i.usage[(t+s)%c] = i.usage[(t+s)%c] + float64(len(record.Data))
 }
 
 func (i *ingress) Print(shardTree map[string][]string, limit int) {
-	for s, bps := range i.count {
-		fmt.Println(s)
-		for t, c := range bps {
-			fmt.Println(t, "-", c, " bytes")
+	for idx, bps := range i.usage {
+		if bps > 0 {
+			fmt.Printf("%d - %f bytes\n", int64(idx)+i.min, bps)
 		}
 	}
 }
 
-func newIngress() *ingress {
+func newIngress(start, end time.Time) *ingress {
+	min := start.Round(time.Second).Unix()
+	max := end.Round(time.Second).Unix()
+	d := max - min
 	return &ingress{
-		count: make(map[string]map[int64]int64),
+		min:   min,
+		usage: make([]float64, d),
 	}
 }
