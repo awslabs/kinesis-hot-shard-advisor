@@ -13,10 +13,13 @@ type ingress struct {
 }
 
 func (i *ingress) Aggregate(shardID string, record *types.Record) {
-	t := record.ApproximateArrivalTimestamp.Round(time.Second).Unix()
-	c := int64(len(i.usage))
-	s := int64(c - i.min%c)
-	i.usage[(t+s)%c] = i.usage[(t+s)%c] + float64(len(record.Data))
+	an := record.ApproximateArrivalTimestamp.Round(time.Second).Unix()
+	// At this point we have t which is a value between min and max
+	// seconds in our series
+	// Use the formula an = a + (n – 1)d to workout n
+	// in this case d = 1 because we aggregate data one second intervals
+	n := (an - i.min) + 1
+	i.usage[n] = i.usage[n] + float64(len(record.Data))
 }
 
 func (i *ingress) Print(shardTree map[string][]string, limit int) {
