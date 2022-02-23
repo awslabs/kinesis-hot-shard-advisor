@@ -10,7 +10,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${fileDirname}/", 
-            "args" : ["-stream", "lab3", "-since","1m"]
+            "args" : ["-stream", "lab3", "-from","10m"]
         }
     ]
 }
