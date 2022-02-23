@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/kinesis/types"
-	"github.com/guptarohit/asciigraph"
 )
 
 type ingress struct {
@@ -29,9 +28,10 @@ func (i *ingress) Aggregate(shardID string, record *types.Record) {
 
 func (i *ingress) Print(shardTree map[string][]string, limit int) {
 	for shardID, data := range i.usage {
-		g := asciigraph.Plot(data, asciigraph.Width(200), asciigraph.Height(10))
 		fmt.Println(shardID)
-		fmt.Println(g)
+		for o, v := range data {
+			fmt.Printf("%s %f B/sec\n", time.Unix(i.min+int64(o), 0).Format("15:04:01"), v)
+		}
 	}
 }
 
