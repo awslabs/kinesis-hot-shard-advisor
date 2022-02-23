@@ -64,8 +64,8 @@ func (o *options) parseStartAndEndTime() (*period, error) {
 func (o *options) parseTime(s string) (time.Time, error) {
 	d, err := time.ParseDuration(o.start)
 	if err != nil {
-		//t, err := time.Parse("2006-01-02 15:04", o.start)
-		t, err := time.ParseInLocation("2006-01-02 15:04", s, time.Local) //converting it to UTC as service understand utc time format
+
+		t, err := time.ParseInLocation("2006-01-02 15:04", s, time.Local)
 		if err != nil {
 			return time.Time{}, err
 		}
