@@ -1,6 +1,6 @@
 package main
 
-//go run . -stream "lab3"
+//go run . -stream=lab3 -from="2022-02-24 10:07" -to="2022-02-24 10:09"
 
 import (
 	"context"
@@ -57,14 +57,15 @@ func (o *options) parseStartAndEndTime() (*period, error) {
 	}
 	period.start = period.start.Round(time.Second).UTC() //converting it to UTC as service understand utc time format
 	period.end = period.end.Round(time.Second).UTC()
-
+	//fmt.Println("end time:", period.end)
 	return &period, nil
 }
 
 func (o *options) parseTime(s string) (time.Time, error) {
 	d, err := time.ParseDuration(o.start)
 	if err != nil {
-		t, err := time.Parse("2006-01-02 15:04", o.start)
+		//t, err := time.Parse("2006-01-02 15:04", o.start)
+		t, err := time.ParseInLocation("2006-01-02 15:04", s, time.Local) //converting it to UTC as service understand utc time format
 		if err != nil {
 			return time.Time{}, err
 		}
