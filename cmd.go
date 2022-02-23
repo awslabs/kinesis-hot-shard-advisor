@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/kinesis"
 	"github.com/aws/aws-sdk-go-v2/service/kinesis/types"
@@ -80,8 +81,14 @@ func (i *cmd) enumerate(ctx context.Context, shardID *string) error {
 		}
 		si = gro.NextShardIterator
 		for _, r := range gro.Records {
+			approxtime := r.ApproximateArrivalTimestamp.Round(time.Second).Unix()
+			endtime := i.period.end.Unix()
+			if approxtime > endtime {
+				return nil
+			}
 			wg := sync.WaitGroup{}
 			wg.Add(len(i.aggregators))
+
 			for _, a := range i.aggregators {
 				go func(a Aggregator) {
 					a.Aggregate(*shardID, &r)
@@ -101,7 +108,7 @@ func (i *cmd) enumerate(ctx context.Context, shardID *string) error {
 			}
 		}
 		if *gro.MillisBehindLatest == 0 {
-			break
+			return nil
 		}
 	}
 	return nil

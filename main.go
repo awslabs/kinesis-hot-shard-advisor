@@ -44,6 +44,7 @@ func (o *options) parseStartAndEndTime() (*period, error) {
 		if err != nil {
 			return nil, err
 		}
+
 	}
 
 	if o.end != "" {
@@ -54,6 +55,8 @@ func (o *options) parseStartAndEndTime() (*period, error) {
 	} else {
 		period.end = time.Now()
 	}
+	period.start = period.start.Round(time.Second).UTC() //converting it to UTC as service understand utc time format
+	period.end = period.end.Round(time.Second).UTC()
 
 	return &period, nil
 }
@@ -61,7 +64,7 @@ func (o *options) parseStartAndEndTime() (*period, error) {
 func (o *options) parseTime(s string) (time.Time, error) {
 	d, err := time.ParseDuration(o.start)
 	if err != nil {
-		t, err := time.Parse("2016-01-02 15:04", o.start)
+		t, err := time.Parse("2006-01-02 15:04", o.start)
 		if err != nil {
 			return time.Time{}, err
 		}
