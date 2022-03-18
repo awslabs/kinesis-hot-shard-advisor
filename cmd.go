@@ -2,9 +2,14 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"html/template"
+	"os"
 	"sync"
 	"time"
+
+	_ "embed"
 
 	"github.com/aws/aws-sdk-go-v2/service/kinesis"
 	"github.com/aws/aws-sdk-go-v2/service/kinesis/types"
@@ -12,15 +17,20 @@ import (
 	"github.com/fatih/color"
 )
 
+//go:embed output.html
+var outputTemplate string
+
 type Aggregator interface {
+	Name() string
 	Aggregate(shardID string, record *types.Record)
-	Print(shardTree map[string][]string, limit int)
+	Result(shardTree map[string][]string, limit int) interface{}
 }
 
-type record struct {
-	partitionKey string
-	shardID      string
-	count        int
+type PartitionKeyCountByShard struct {
+	PartitionKey   string `json:"partitionKey"`
+	ShardID        string `json:"shardId"`
+	Count          int    `json:"count"`
+	SplitCandidate string `json:"splitCandidate"`
 }
 
 type cmd struct {
@@ -137,8 +147,30 @@ func (i *cmd) listShards(ctx context.Context, streamName string) ([]types.Shard,
 }
 
 func (i *cmd) print() {
+	results := make(map[string]interface{})
 	for _, a := range i.aggregators {
-		a.Print(i.shardTree, i.limit)
+		results[a.Name()] = a.Result(i.shardTree, i.limit)
+	}
+	buf, err := json.MarshalIndent(results, "", " ")
+	if err != nil {
+		panic(err)
+	}
+	t, err := template.New("output").Parse(outputTemplate)
+	if err != nil {
+		panic(err)
+	}
+	fname := time.Now().Format("2006-01-02-15-04.html")
+	file, err := os.OpenFile(fname, os.O_WRONLY|os.O_CREATE, 0400)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+	err = t.Execute(file, map[string]interface{}{
+		"Date": time.Now(),
+		"Data": template.JS(string(buf)),
+	})
+	if err != nil {
+		panic(err)
 	}
 }
 

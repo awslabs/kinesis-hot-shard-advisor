@@ -1,11 +1,9 @@
 package main
 
 import (
-	"fmt"
 	"sort"
 
 	"github.com/aws/aws-sdk-go-v2/service/kinesis/types"
-	"github.com/fatih/color"
 )
 
 type count struct {
@@ -13,38 +11,33 @@ type count struct {
 	keyToShardMap map[string]string // tracks each key and last shard id it appeared in
 }
 
+func (c *count) Name() string {
+	return "count"
+}
+
 func (c *count) Aggregate(shardID string, r *types.Record) {
 	c.count[*r.PartitionKey] = c.count[*r.PartitionKey] + 1
 	c.keyToShardMap[*r.PartitionKey] = shardID
 }
 
-func (c *count) Print(shardTree map[string][]string, limit int) {
-	sorted, total := c.countAndSort()
-	fmt.Println()
-	color.Green("Usage     Count      Split Candidate          Key")
-	color.Green("――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――")
-	dc := len(sorted)
-	if dc > limit {
-		dc = limit
-	}
-	for idx := 0; idx < dc; idx++ {
-		i := sorted[idx]
-		fmt.Printf("%4.1f%%     %-6d     %20s     %s\n", (float32(i.count)/float32(total))*100, i.count, c.splitCandidate(shardTree, i.partitionKey), i.partitionKey)
-	}
+func (c *count) Result(shardTree map[string][]string, limit int) interface{} {
+	sorted, _ := c.countAndSort(shardTree)
+	return sorted
 }
 
-func (c *count) countAndSort() ([]*record, int) {
+func (c *count) countAndSort(shardTree map[string][]string) ([]*PartitionKeyCountByShard, int) {
 	t := 0
-	out := make([]*record, 0)
+	out := make([]*PartitionKeyCountByShard, 0)
 	for k, v := range c.count {
-		out = append(out, &record{
-			partitionKey: k,
-			count:        v,
+		out = append(out, &PartitionKeyCountByShard{
+			PartitionKey:   k,
+			Count:          v,
+			SplitCandidate: c.splitCandidate(shardTree, k),
 		})
 		t += v
 	}
 	sort.Slice(out, func(i, j int) bool {
-		return out[i].count > out[j].count
+		return out[i].Count > out[j].Count
 	})
 	return out, t
 }

@@ -124,3 +124,4 @@ $RECYCLE.BIN/
 # End of https://www.toptal.com/developers/gitignore/api/go,windows,osx,linux,vim,vscode
 
 build/
+[0-9]*.html

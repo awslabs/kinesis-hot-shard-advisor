@@ -7,14 +7,17 @@ import (
 	"hash/maphash"
 
 	"github.com/aws/aws-sdk-go-v2/service/kinesis/types"
-	"github.com/fatih/color"
 )
 
 type cms struct {
 	sketch map[string][]int
 	seed   maphash.Seed
-	topK   []record
+	topK   []PartitionKeyCountByShard
 	count  int64
+}
+
+func (c *cms) Name() string {
+	return "cms"
 }
 
 func (c *cms) Aggregate(shardID string, r *types.Record) {
@@ -25,16 +28,8 @@ func (c *cms) Aggregate(shardID string, r *types.Record) {
 	c.count++
 }
 
-func (c *cms) Print(shardTree map[string][]string, limit int) {
-	color.Green("Usage     Split Candidate          Key")
-	color.Green("――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――――")
-	for idx := 0; idx < len(c.topK); idx++ {
-		i := c.topK[idx]
-		if i.count == 0 {
-			break
-		}
-		fmt.Printf("%4.1f%%     %s     %s\n", (float32(i.count)/float32(c.count))*100, c.splitCandidate(shardTree, i.shardID), i.partitionKey)
-	}
+func (c *cms) Result(shardTree map[string][]string, limit int) interface{} {
+	return c.topK
 }
 
 func (c *cms) splitCandidate(shardTree map[string][]string, shardID string) string {
@@ -47,14 +42,14 @@ func (c *cms) splitCandidate(shardTree map[string][]string, shardID string) stri
 func (c *cms) updateTopK(key, shardID string, count int) bool {
 	for i := 0; i < len(c.topK); i++ {
 		r := &c.topK[i]
-		if r.count == 0 {
+		if r.Count == 0 {
 			return false
 		}
-		if r.partitionKey == key {
-			r.shardID = shardID
-			r.count = count
+		if r.PartitionKey == key {
+			r.ShardID = shardID
+			r.Count = count
 			for j := i; j > 0; j-- {
-				if c.topK[j].count > c.topK[j-1].count {
+				if c.topK[j].Count > c.topK[j-1].Count {
 					t := c.topK[j-1]
 					c.topK[j-1] = c.topK[j]
 					c.topK[j] = t
@@ -67,17 +62,17 @@ func (c *cms) updateTopK(key, shardID string, count int) bool {
 }
 
 func (c *cms) addToTopK(key, shardID string, count int) {
-	if c.topK[len(c.topK)-1].count > count {
+	if c.topK[len(c.topK)-1].Count > count {
 		return
 	}
-	r := record{
-		partitionKey: key,
-		shardID:      shardID,
-		count:        count,
+	r := PartitionKeyCountByShard{
+		PartitionKey: key,
+		ShardID:      shardID,
+		Count:        count,
 	}
 	c.topK[len(c.topK)-1] = r
 	for i := len(c.topK); i > 1; i-- {
-		if c.topK[i-1].count <= c.topK[i-2].count {
+		if c.topK[i-1].Count <= c.topK[i-2].Count {
 			break
 		}
 		t := c.topK[i-2]
@@ -117,6 +112,6 @@ func newCMS(hashes, slots, limit int) (*cms, error) {
 	return &cms{
 		sketch: sketch,
 		seed:   maphash.MakeSeed(),
-		topK:   make([]record, limit),
+		topK:   make([]PartitionKeyCountByShard, limit),
 	}, nil
 }
