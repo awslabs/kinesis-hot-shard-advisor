@@ -17,7 +17,7 @@ import (
 	"github.com/fatih/color"
 )
 
-//go:embed output.html
+//go:embed template.html
 var outputTemplate string
 
 type Aggregator interface {
@@ -49,9 +49,17 @@ func (i *cmd) Start(ctx context.Context) error {
 		return err
 	}
 	color.Yellow("OK!")
+	// Store all shard ids in a map so that we can
+	// quickly check if a given shard id exists in the
+	// list or not.
+	shardsSet := make(map[string]bool)
+	for _, shard := range shards {
+		shardsSet[*shard.ShardId] = true
+	}
 	bar := pb.StartNew(len(shards))
 	for _, shard := range shards {
-		if shard.ParentShardId == nil {
+		_, isParentAvailable := shardsSet[*shard.ParentShardId]
+		if shard.ParentShardId == nil || !isParentAvailable {
 			err := i.enumerate(ctx, shard.ShardId)
 			if err != nil {
 				return err
@@ -147,31 +155,48 @@ func (i *cmd) listShards(ctx context.Context, streamName string) ([]types.Shard,
 }
 
 func (i *cmd) print() {
-	results := make(map[string]interface{})
+	type report struct {
+		From int                    `json:"from"`
+		Data map[string]interface{} `json:"data"`
+	}
+	r := &report{
+		From: int(i.period.start.Unix()),
+		Data: make(map[string]interface{}),
+	}
 	for _, a := range i.aggregators {
-		results[a.Name()] = a.Result(i.shardTree, i.limit)
+		r.Data[a.Name()] = a.Result(i.shardTree, i.limit)
 	}
-	buf, err := json.MarshalIndent(results, "", " ")
+	buf, err := json.Marshal(r)
 	if err != nil {
 		panic(err)
 	}
-	t, err := template.New("output").Parse(outputTemplate)
+
+	t, err := template.New("output").Funcs(template.FuncMap{
+		"trustedJS": func(s string) template.JS {
+			return template.JS(s)
+		},
+		"trustedHTML": func(s string) template.HTML {
+			return template.HTML(s)
+		},
+	}).Parse(outputTemplate)
 	if err != nil {
 		panic(err)
 	}
-	fname := time.Now().Format("2006-01-02-15-04.html")
-	file, err := os.OpenFile(fname, os.O_WRONLY|os.O_CREATE, 0400)
+	fname := "out.html"
+	file, err := os.OpenFile(fname, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		panic(err)
 	}
+	defer file.Sync()
 	defer file.Close()
 	err = t.Execute(file, map[string]interface{}{
-		"Date": time.Now(),
-		"Data": template.JS(string(buf)),
+		"Date":   time.Now(),
+		"Report": template.JS(string(buf)),
 	})
 	if err != nil {
 		panic(err)
 	}
+	fmt.Printf("output is written to %s\n", fname)
 }
 
 func newCMD(streamName string, kds kds, aggregators []Aggregator, limit int, p *period) *cmd {
@@ -181,5 +206,6 @@ func newCMD(streamName string, kds kds, aggregators []Aggregator, limit int, p *
 		aggregators: aggregators,
 		limit:       limit,
 		period:      p,
+		shardTree:   make(map[string][]string),
 	}
 }

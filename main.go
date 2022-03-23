@@ -57,7 +57,6 @@ func (o *options) parseStartAndEndTime() (*period, error) {
 	}
 	period.start = period.start.Round(time.Second).UTC() //converting it to UTC as service understand utc time format
 	period.end = period.end.Round(time.Second).UTC()
-
 	return &period, nil
 }
 

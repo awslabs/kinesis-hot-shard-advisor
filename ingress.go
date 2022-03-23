@@ -34,7 +34,15 @@ func (i *ingress) Aggregate(shardID string, record *types.Record) {
 }
 
 func (i *ingress) Result(shardTree map[string][]string, limit int) interface{} {
-	return i.usage
+	type record struct {
+		ShardID string `json:"shardId"`
+		Values  []int  `json:"values"`
+	}
+	results := make([]record, 0)
+	for k, v := range i.usage {
+		results = append(results, record{k, v})
+	}
+	return results
 }
 
 func newIngress(start, end time.Time) *ingress {

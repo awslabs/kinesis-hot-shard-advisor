@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Kinesis Hot Shard Advisor Report {{ .Date.Format "2006-01-02 15:04" }}</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsrender/1.0.11/jsrender.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@^2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@^1"></script>
+</head>
+
+<body>
+    <div>
+        <h1>Kinesis Hot Shard Advisor Report</h1>
+    </div>
+    <div id="report-ingress">
+        <h2>Ingress</h2>
+        <p>
+            Ingress graphs indicate how much data was written to a shard on per second basis. It's calculated by reading the stream and aggregating the record size for each second in ApproximateArrivalTimestamp.
+        </p>
+        <ul id="report-ingress-nav">
+        </ul>
+        <div style="clear:both"/>
+        <div id="report-ingress"></div>
+    </div>
+    <script id="template-ingress-nav" type="text/x-jsrender">
+        <li class="nav-item">
+            {{ trustedHTML `<a href="#report-ingress-section-{{:shardId}}">{{:shardId}}</a>` }}
+            </li>
+    </script>
+    <script id="template-ingress" type="text/x-jsrender">
+        <div>
+            {{ trustedHTML `<h2 id="report-ingress-section-{{:shardId}}">{{:shardId}}</h2>` }}
+            {{ trustedHTML `<canvas id="report-ingress-graph-{{:shardId}}" width="800px" height="300px"></canvas>` }}
+        </div>
+    </script>
+    <script>
+        function renderIngressGraphs() {
+            var ingressData = report.data['ingress'];
+            if (ingressData.length == 0) {
+                return;
+            }
+            var labels = [];
+            var startTime = report.from;
+            for(var i = 0; i < ingressData[0].values.length; i++) {
+                labels.push(new Date((startTime + i) * 1000));
+            }
+            for(var item of report.data['ingress']) {
+                renderIngressGraph(item, labels);
+            }
+        }
+
+        function renderIngressGraph(data, labels) {
+            var ctx = document.getElementById(`report-ingress-graph-${data.shardId}`);
+            latencyChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'bytes/sec',
+                        data: data.values,
+                        fill: false,
+                        borderColor: 'rgb(75, 192, 192)'
+                    }]
+                },
+                options: {
+                    fill: false,
+                    responsive: false,
+                    elements: {
+                        point: {
+                            radius: 0
+                        },
+                        line: {
+                            tension: 0.2,
+                            borderWidth: 1,
+
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'second'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+    </script>
+    <script>
+        const report = {{ .Report }};
+        {{ trustedJS `$(document).ready(function() {
+                $('#report-ingress-nav').append($('#template-ingress-nav').render(report.data['ingress']));
+                $('#report-ingress').append($('#template-ingress').render(report.data['ingress']));
+                renderIngressGraphs();
+           });` }}
+    </script>
+    
+</body>
+
+</html>
