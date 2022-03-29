@@ -38,4 +38,4 @@ output is written to out.html
 ```
 
 ## View the report
-Once you see the output as above, open the **out.html** file with your default browser to view the report.
+Once you see the output as above, open the **out.html** file from your current directory with your default browser to view the report.
