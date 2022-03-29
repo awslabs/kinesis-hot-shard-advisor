@@ -28,7 +28,7 @@ Default output format [None]:
 ```
 go run . -stream=[YOUR STREAM NAME]] -from="yyyy-mm-dd hh:mm" -to="yyyy-mm-dd hh:mm"
 ```
-Example:  go run . -stream=lab3 -from="2022-02-24 10:07" -to="2022-02-24 10:09" 
+Example:  *go run . -stream=lab3 -from="2022-02-24 10:07" -to="2022-02-24 10:09"* 
 
 ## Output sample
 ```
