@@ -7,7 +7,7 @@ The Amazon Kinesis hot key advisor is a tool that simplifies identifying whether
 ## Prerequisite
 1. Install [Go](https://go.dev/doc/install)
 2. Install [AWSCli](https://aws.amazon.com/cli/)
-3. Configure [AWSCli](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html) specifying an AWS region. Use access key and secret key associated with an IAM user which has at least "AmazonKinesisReadOnlyAccess" policy attached.
+3. Configure [AWSCli](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html) specifying an AWS region. Use access key and secret key associated with an IAM user which has at least "**AmazonKinesisReadOnlyAccess**" policy attached.
 
 Example:
 ```
@@ -33,9 +33,9 @@ Example:  go run . -stream=lab3 -from="2022-02-24 10:07" -to="2022-02-24 10:09"
 ## Output sample
 ```
 Listing shards for stream lab3...OK!
- 10 / 10 [===========================================================================================================================================] 100.00% 2m52s
+ 10 / 10 [====================================================] 100.00% 2m52s
 output is written to out.html
 ```
 
 ## View the report
-Once you see the output as above, open the out.html file with your default browser to view the report.
+Once you see the output as above, open the **out.html** file with your default browser to view the report.
