@@ -31,52 +31,49 @@
     <div>
         <h1>Kinesis Hot Shard Advisor Report</h1>
     </div>
-    <div id="report-ingress">
+    <div>
         <h2>Ingress</h2>
         <p>
             Ingress graphs indicate how much data was written to a shard on per second basis. It's calculated by reading the stream and aggregating the record size for each second in ApproximateArrivalTimestamp.
         </p>
-        <ul id="report-ingress-nav">
+        <ul id="report-nav">
         </ul>
         <div style="clear:both"/>
-        <div id="report-ingress"></div>
+        <div id="report-shard-stats"></div>
     </div>
-    <script id="template-ingress-nav" type="text/x-jsrender">
+    <script id="template-nav" type="text/x-jsrender">
         <li class="nav-item">
-            {{ trustedHTML `<a href="#report-ingress-section-{{:shardId}}">{{:shardId}}</a>` }}
+            {{ trustedHTML `<a href="#shard-stats-{{:shardId}}">{{:shardId}}</a>` }}
             </li>
     </script>
-    <script id="template-ingress" type="text/x-jsrender">
+    <script id="template-shard-stats" type="text/x-jsrender">
         <div>
-            {{ trustedHTML `<h2 id="report-ingress-section-{{:shardId}}">{{:shardId}}</h2>` }}
-            {{ trustedHTML `<canvas id="report-ingress-graph-{{:shardId}}" width="800px" height="300px"></canvas>` }}
+            {{ trustedHTML `<h2 id="shard-stats-{{:shardId}}">{{:shardId}}</h2>` }}
+            <h3>Ingress</h3>
+            {{ trustedHTML `<canvas id="graph-ingress-{{:shardId}}" width="800px" height="300px"></canvas>` }}
+            <h3>Frequent Keys</h3>
+            {{ trustedHTML `<canvas id="graph-count-{{:shardId}}" width="800px" height="300px"></canvas>` }}
         </div>
     </script>
     <script>
-        function renderIngressGraphs() {
-            var ingressData = report.data['ingress'];
-            if (ingressData.length == 0) {
-                return;
-            }
-            var labels = [];
+        function renderGraphs() {
+            var secondLabels = [];
             var startTime = report.from;
-            for(var i = 0; i < ingressData[0].values.length; i++) {
-                labels.push(new Date((startTime + i) * 1000));
-            }
-            for(var item of report.data['ingress']) {
-                renderIngressGraph(item, labels);
+            for(var shard of report.shards) {
+                renderIngressGraph(shard.shardId, shard.stats['ingress'].map((_, i) => new Date((startTime + i) * 1000)), shard.stats['ingress']);
+                renderCountGraph(shard.shardId, shard.stats['count'].map(i => i.partitionKey), shard.stats['count'].map(i => i.count));
             }
         }
 
-        function renderIngressGraph(data, labels) {
-            var ctx = document.getElementById(`report-ingress-graph-${data.shardId}`);
+        function renderIngressGraph(shardId, labels, values) {
+            var ctx = document.getElementById(`graph-ingress-${shardId}`);
             latencyChart = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: labels,
                     datasets: [{
                         label: 'bytes/sec',
-                        data: data.values,
+                        data: values,
                         fill: false,
                         borderColor: 'rgb(75, 192, 192)'
                     }]
@@ -109,13 +106,30 @@
             });
         }
 
+        function renderCountGraph(shardId, labels, values) {
+            var ctx = document.getElementById(`graph-count-${shardId}`);
+            latencyChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Partition Key Distribution',
+                        data: values
+                    }]
+                },
+                options: {
+                    responsive: false,
+                }
+            });
+        }
+
     </script>
     <script>
         const report = {{ .Report }};
         {{ trustedJS `$(document).ready(function() {
-                $('#report-ingress-nav').append($('#template-ingress-nav').render(report.data['ingress']));
-                $('#report-ingress').append($('#template-ingress').render(report.data['ingress']));
-                renderIngressGraphs();
+                $('#report-nav').append($('#template-nav').render(report.shards));
+                $('#report-shard-stats').append($('#template-shard-stats').render(report.shards));
+                renderGraphs();
            });` }}
     </script>
     

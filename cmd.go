@@ -23,7 +23,7 @@ var outputTemplate string
 type Aggregator interface {
 	Name() string
 	Aggregate(shardID string, record *types.Record)
-	Result(shardTree map[string][]string, limit int) interface{}
+	Result(shardTree map[string][]string, limit int) map[string]interface{}
 }
 
 type PartitionKeyCountByShard struct {
@@ -58,8 +58,11 @@ func (i *cmd) Start(ctx context.Context) error {
 	}
 	bar := pb.StartNew(len(shards))
 	for _, shard := range shards {
-		_, isParentAvailable := shardsSet[*shard.ParentShardId]
-		if shard.ParentShardId == nil || !isParentAvailable {
+		isTopLevelShard := false
+		if shard.ParentShardId != nil {
+			_, isTopLevelShard = shardsSet[*shard.ParentShardId]
+		}
+		if !isTopLevelShard {
 			err := i.enumerate(ctx, shard.ShardId)
 			if err != nil {
 				return err
@@ -68,7 +71,7 @@ func (i *cmd) Start(ctx context.Context) error {
 		bar.Increment()
 	}
 	bar.Finish()
-	i.print()
+	i.generateReport()
 	return nil
 }
 
@@ -154,23 +157,37 @@ func (i *cmd) listShards(ctx context.Context, streamName string) ([]types.Shard,
 	return r, nil
 }
 
-func (i *cmd) print() {
+func (i *cmd) generateReport() {
+	type shardStats struct {
+		ShardID string                 `json:"shardId"`
+		Stats   map[string]interface{} `json:"stats"`
+	}
 	type report struct {
-		From int                    `json:"from"`
-		Data map[string]interface{} `json:"data"`
+		From   int          `json:"from"`
+		Shards []shardStats `json:"shards"`
+	}
+	stats := make(map[string]map[string]interface{})
+	for _, a := range i.aggregators {
+		result := a.Result(i.shardTree, i.limit)
+		for sid, data := range result {
+			if _, ok := stats[sid]; !ok {
+				stats[sid] = make(map[string]interface{})
+			}
+			stats[sid][a.Name()] = data
+		}
+	}
+	data := make([]shardStats, 0)
+	for sid, v := range stats {
+		data = append(data, shardStats{sid, v})
 	}
 	r := &report{
-		From: int(i.period.start.Unix()),
-		Data: make(map[string]interface{}),
-	}
-	for _, a := range i.aggregators {
-		r.Data[a.Name()] = a.Result(i.shardTree, i.limit)
+		From:   int(i.period.start.Unix()),
+		Shards: data,
 	}
 	buf, err := json.Marshal(r)
 	if err != nil {
 		panic(err)
 	}
-
 	t, err := template.New("output").Funcs(template.FuncMap{
 		"trustedJS": func(s string) template.JS {
 			return template.JS(s)

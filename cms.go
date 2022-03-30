@@ -28,15 +28,24 @@ func (c *cms) Aggregate(shardID string, r *types.Record) {
 	c.count++
 }
 
-func (c *cms) Result(shardTree map[string][]string, limit int) interface{} {
-	return c.topK
-}
-
-func (c *cms) splitCandidate(shardTree map[string][]string, shardID string) string {
-	if len(shardTree[shardID]) == 0 {
-		return shardID
+func (c *cms) Result(shardTree map[string][]string, limit int) map[string]interface{} {
+	type record struct {
+		PartitionKey string
+		Count        int
 	}
-	return ""
+	result := make(map[string]interface{})
+	for _, i := range c.topK {
+		var (
+			records []record
+		)
+		if a, ok := result[i.ShardID]; !ok {
+			records = make([]record, 0)
+		} else {
+			records = a.([]record)
+		}
+		result[i.ShardID] = append(records, record{i.PartitionKey, i.Count})
+	}
+	return result
 }
 
 func (c *cms) updateTopK(key, shardID string, count int) bool {
