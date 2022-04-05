@@ -32,9 +32,9 @@
         <h1>Kinesis Hot Shard Advisor Report</h1>
     </div>
     <div>
-        <h2>Ingress</h2>
+        
         <p>
-            The tool reads available shards of the stream one after another at your specified time to calculate the shard level per second consumption and frequently used partition keys. 
+            The tool reads available shards of the stream one after another at your specified time to calculate the shard level per second consumption and frequently used top 10 partition keys. 
             Ingress graphs indicate how much data was written to a shard on per second basis. It's calculated by reading the stream and aggregating the record size for each second in ApproximateArrivalTimestamp.
             Having more ingress in a shard than others indicates a potential hot shard issue. 
         </p>

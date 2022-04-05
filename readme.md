@@ -40,6 +40,7 @@ output is written to out.html
 Once you see the output as above, open the **out.html** file from your current directory with your default browser to view the report.
 
 ## Sample report
+![Sample Report](images/samplereport.png)
 
 ## Contributing to the project
 If you are interested in contributing to this project, here are the steps you can follow:
