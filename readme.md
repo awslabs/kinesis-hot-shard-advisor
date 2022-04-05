@@ -6,7 +6,7 @@ The Amazon Kinesis hot key advisor is a tool that simplifies identifying whether
 
 ## Prerequisite
 1. Install [AWSCli](https://aws.amazon.com/cli/)
-2. Configure [AWSCli](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html) specifying an AWS region. Use access key and secret key associated with an IAM user which has at least "**AmazonKinesisReadOnlyAccess**" policy attached.
+2. Configure [AWSCli](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html) specifying an AWS region. Use access key and secret key associated with an IAM user which has at least "**AmazonKinesisReadOnlyAccess**" policy attached
 
 Example:
 ```
@@ -21,8 +21,18 @@ Default output format [None]:
 ** Kinesis hotkey advisor will use the AWSCli configuration to access Kinesis data streams on a particular AWS region.
 
 ## Gettng started
-1. Download the GitHub project on your local machine.
-2. Use commandline and navigate to project directory that you have downloaded earlier.
+**Option 1: If you want to use the binary** 
+1. download the compatible binary from [releases](https://github.com/buddyspike/khs/releases)
+2. Use command line and navigate to the directory where you downloaded the binary earlier
+3. run the below command
+```
+[binaryFileName] -stream=[YOUR STREAM NAME]] -from="yyyy-mm-dd hh:mm" -to="yyyy-mm-dd hh:mm"
+```
+Example:  khs -stream=lab3 -from="2022-02-24 10:07" -to="2022-02-24 10:09"* 
+
+**Option 2: If you want to use the source code**
+1. Download the GitHub project on your local machine
+2. Use command line and navigate to the project directory that you have downloaded earlier
 3. run the below command
 ```
 go run . -stream=[YOUR STREAM NAME]] -from="yyyy-mm-dd hh:mm" -to="yyyy-mm-dd hh:mm"
