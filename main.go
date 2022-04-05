@@ -46,7 +46,6 @@ func (o *options) parseStartAndEndTime() (*period, error) {
 		}
 
 	}
-
 	if o.end != "" {
 		period.end, err = o.parseTime(o.end)
 		if err != nil {
