@@ -208,6 +208,7 @@ func (i *cmd) generateReport() {
 	defer file.Close()
 	err = t.Execute(file, map[string]interface{}{
 		"Date":   time.Now(),
+		"Limit":  i.limit,
 		"Report": template.JS(string(buf)),
 	})
 	if err != nil {

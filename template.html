@@ -63,7 +63,7 @@
             var startTime = report.from;
             for(var shard of report.shards) {
                 renderIngressGraph(shard.shardId, shard.stats['ingress'].map((_, i) => new Date((startTime + i) * 1000)), shard.stats['ingress']);
-                renderCountGraph(shard.shardId, shard.stats['count'].map(i => i.partitionKey), shard.stats['count'].map(i => i.count));
+                renderCountGraph(shard.shardId, shard.stats['count'].slice(0, options.limit).map(i => i.partitionKey), shard.stats['count'].slice(0, options.limit).map(i => i.count));
             }
         }
 
@@ -128,6 +128,9 @@
     </script>
     <script>
         const report = {{ .Report }};
+        const options = {
+            limit: {{ .Limit }}
+        };
         {{ trustedJS `$(document).ready(function() {
                 $('#report-nav').append($('#template-nav').render(report.shards));
                 $('#report-shard-stats').append($('#template-shard-stats').render(report.shards));
