@@ -5,13 +5,12 @@ Easily identify hot shard and hot key on your Kinesis data streams.
 The Amazon Kinesis hot key advisor is a tool that simplifies identifying whether you have hot key or hot shard issues on your Kinesis data streams. The tool can also identify whether you are hitting the shard level throughput limit per-second basis.
 
 ## Prerequisite
-1. Install [Go](https://go.dev/doc/install)
-2. Install [AWSCli](https://aws.amazon.com/cli/)
-3. Configure [AWSCli](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html) specifying an AWS region. Use access key and secret key associated with an IAM user which has at least "**AmazonKinesisReadOnlyAccess**" policy attached.
+1. Install [AWSCli](https://aws.amazon.com/cli/)
+2. Configure [AWSCli](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html) specifying an AWS region. Use access key and secret key associated with an IAM user which has at least "**AmazonKinesisReadOnlyAccess**" policy attached.
 
 Example:
 ```
-C:\Users\masudurs>aws configure
+C:\Users\UserName>aws configure
 AWS Access Key ID [*****************]: ABCDXYZ
 AWS Secret Access Key [****************]: ABCDXYZ
 Default region name [None]: ap-southeast-2
@@ -39,3 +38,10 @@ output is written to out.html
 
 ## View the report
 Once you see the output as above, open the **out.html** file from your current directory with your default browser to view the report.
+
+## Sample report
+
+## Contributing to the project
+If you are interested in contributing to this project, here are the steps you can follow:
+1. Install [Go](https://go.dev/doc/install) on your local computer
+2. Clone this project, start developing and submit a pull request 
