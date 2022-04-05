@@ -82,11 +82,8 @@ func (i *cmd) enumerate(ctx context.Context, shardID *string) error {
 	gsii := &kinesis.GetShardIteratorInput{
 		StreamName:        &i.streamName,
 		ShardId:           shardID,
-		ShardIteratorType: types.ShardIteratorTypeTrimHorizon,
-	}
-	if i.period != nil {
-		gsii.ShardIteratorType = types.ShardIteratorTypeAtTimestamp
-		gsii.Timestamp = &i.period.start
+		ShardIteratorType: types.ShardIteratorTypeAtTimestamp,
+		Timestamp:         &i.period.start,
 	}
 	iter, err := i.kds.GetShardIterator(ctx, gsii)
 	if err != nil {
