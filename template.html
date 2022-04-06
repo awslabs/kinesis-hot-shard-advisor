@@ -32,11 +32,10 @@
         <h1>Kinesis Hot Shard Advisor Report</h1>
     </div>
     <div>
-        
         <p>
-            The tool reads available shards of the stream one after another at your specified time to calculate the shard level per second consumption and frequently used top 10 partition keys. 
+            The tool reads available shards of the stream sequentially for the specified duration to calculate the shard level per second consumption and frequently used top partition keys (top 10 by default). 
             Ingress graphs indicate how much data was written to a shard on per second basis. It's calculated by reading the stream and aggregating the record size for each second in ApproximateArrivalTimestamp.
-            Having more ingress in a shard than others indicates a potential hot shard issue. 
+            Ingress rate above 1MB/sec indicates a potential hot shard issue. Frequent Keys graph show top n keys and the count written to a shard during the reporting period. If you are seeing one or small number of keys being frequently written to a shard exceeding 1MB/sec ingress rate, we advise you to consider tuning the partition key scheme to improve data  distribution across multiple shards.
         </p>
         <ul id="report-nav">
         </ul>
