@@ -99,9 +99,7 @@ func (i *cmd) enumerate(ctx context.Context, shardID *string) error {
 		}
 		si = gro.NextShardIterator
 		for _, r := range gro.Records {
-			approxtime := r.ApproximateArrivalTimestamp.Round(time.Second).Unix()
-			endtime := i.period.end.Unix()
-			if approxtime > endtime {
+			if i.period.end.Sub(*r.ApproximateArrivalTimestamp) < 0 {
 				return nil
 			}
 			wg := sync.WaitGroup{}

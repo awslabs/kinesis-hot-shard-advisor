@@ -56,8 +56,11 @@ func (o *options) parseStartAndEndTime() (*period, error) {
 	if o.start == "" {
 		period.start = period.end.Add(time.Minute * -5)
 	}
-	period.end = period.end.Round(time.Second).UTC()
-	period.start = period.start.Round(time.Second).UTC() //converting it to UTC as service understand utc time format
+	// Now that we have worked out our time range in local
+	// time, convert it to UTC because Kinesis record timestamps
+	// are in UTC.
+	period.end = period.end.UTC()
+	period.start = period.start.UTC()
 	return &period, nil
 }
 

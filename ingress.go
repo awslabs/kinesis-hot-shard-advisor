@@ -23,14 +23,13 @@ func (i *ingress) Aggregate(shardID string, record *types.Record) {
 		//last second is inclusive, so to handle the out of index issue
 		i.usage[shardID] = make([]int, int(i.max-i.min)+1)
 	}
-	an := record.ApproximateArrivalTimestamp.Round(time.Second).Unix()
+	an := record.ApproximateArrivalTimestamp.Unix()
 	// At this point we have t which is a value between min and max
 	// seconds in our series
 	// Use the formula an = a + (n – 1)d to workout n
 	// in this case d = 1 because we aggregate data one second intervals
 	n := (an - i.min)
 	i.usage[shardID][n] = i.usage[shardID][n] + len(record.Data)
-
 }
 
 func (i *ingress) Result(shardTree map[string][]string, limit int) map[string]interface{} {
