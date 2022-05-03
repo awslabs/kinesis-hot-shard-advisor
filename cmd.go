@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"log"
 	"os"
 	"sync"
 	"time"
@@ -95,9 +96,10 @@ func (i *cmd) enumerate(ctx context.Context, shardID *string) error {
 	startTime := time.Now()
 	for si != nil {
 		tokens = tokens + 1
-		if tokens > 5 || egress > 2*1024*1024 {
-			duration := time.Since(startTime)
+		if tokens > 5 || egress > 10*1024*1024 {
+			duration := time.Since(startTime) + time.Millisecond*10
 			if duration < time.Second {
+				log.Printf("tokens:%d egress: %d", tokens, egress)
 				time.Sleep(time.Second - duration)
 			}
 			tokens = 0
