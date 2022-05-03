@@ -91,13 +91,26 @@ func (i *cmd) enumerate(ctx context.Context, shardID *string) error {
 	}
 	si = iter.ShardIterator
 	tokens := 0
+	egress := 0
 	startTime := time.Now()
 	for si != nil {
 		tokens = tokens + 1
 		if tokens > 5 {
 			duration := time.Since(startTime)
-			time.Sleep(time.Second - duration)
+			if duration > 0 {
+				time.Sleep(time.Second - duration)
+			}
 			tokens = 0
+			egress = 0
+			startTime = time.Now()
+		}
+		if egress > 2*1024*1024 {
+			duration := time.Since(startTime)
+			if duration > 0 {
+				time.Sleep(time.Second - duration)
+			}
+			tokens = 0
+			egress = 0
 			startTime = time.Now()
 		}
 		gro, err := i.kds.GetRecords(ctx, &kinesis.GetRecordsInput{
@@ -111,6 +124,7 @@ func (i *cmd) enumerate(ctx context.Context, shardID *string) error {
 			if i.period.end.Sub(*r.ApproximateArrivalTimestamp) < 0 {
 				return nil
 			}
+			egress = egress + len(r.Data)
 			wg := sync.WaitGroup{}
 			wg.Add(len(i.aggregators))
 
