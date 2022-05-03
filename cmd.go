@@ -95,24 +95,16 @@ func (i *cmd) enumerate(ctx context.Context, shardID *string) error {
 	startTime := time.Now()
 	for si != nil {
 		tokens = tokens + 1
-		if tokens > 5 {
+		if tokens > 5 || egress > 2*1024*1024 {
 			duration := time.Since(startTime)
-			if duration > 0 {
+			if duration < time.Second {
 				time.Sleep(time.Second - duration)
 			}
 			tokens = 0
 			egress = 0
 			startTime = time.Now()
 		}
-		if egress > 2*1024*1024 {
-			duration := time.Since(startTime)
-			if duration > 0 {
-				time.Sleep(time.Second - duration)
-			}
-			tokens = 0
-			egress = 0
-			startTime = time.Now()
-		}
+
 		gro, err := i.kds.GetRecords(ctx, &kinesis.GetRecordsInput{
 			ShardIterator: si,
 		})
