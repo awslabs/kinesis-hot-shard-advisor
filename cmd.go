@@ -27,13 +27,6 @@ type Aggregator interface {
 	Result(shardTree map[string][]string, limit int) map[string]interface{}
 }
 
-type PartitionKeyCountByShard struct {
-	PartitionKey   string `json:"partitionKey"`
-	ShardID        string `json:"shardId"`
-	Count          int    `json:"count"`
-	SplitCandidate string `json:"splitCandidate"`
-}
-
 type cmd struct {
 	streamName  string
 	kds         kds

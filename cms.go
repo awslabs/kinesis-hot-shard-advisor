@@ -9,10 +9,17 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/kinesis/types"
 )
 
+type partitionKeyCountByShard struct {
+	PartitionKey   string `json:"partitionKey"`
+	ShardID        string `json:"shardId"`
+	Count          int    `json:"count"`
+	SplitCandidate string `json:"splitCandidate"`
+}
+
 type cms struct {
 	sketch map[string][]int
 	seed   maphash.Seed
-	topK   []PartitionKeyCountByShard
+	topK   []partitionKeyCountByShard
 	count  int64
 }
 
@@ -74,7 +81,7 @@ func (c *cms) addToTopK(key, shardID string, count int) {
 	if c.topK[len(c.topK)-1].Count > count {
 		return
 	}
-	r := PartitionKeyCountByShard{
+	r := partitionKeyCountByShard{
 		PartitionKey: key,
 		ShardID:      shardID,
 		Count:        count,
@@ -121,6 +128,6 @@ func newCMS(hashes, slots, limit int) (*cms, error) {
 	return &cms{
 		sketch: sketch,
 		seed:   maphash.MakeSeed(),
-		topK:   make([]PartitionKeyCountByShard, limit),
+		topK:   make([]partitionKeyCountByShard, limit),
 	}, nil
 }
