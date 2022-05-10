@@ -37,6 +37,8 @@ type aggregatedResult struct {
 	Result      map[string]interface{}
 }
 
+type AggregatorBuilder func() []Aggregator
+
 // cmd Implements the main workflow for hot shard analysis.
 // It first creates an EFO consumer. Then it enumerate shards
 // and for each top level shard to create an aggregator pipeline
@@ -46,13 +48,12 @@ type aggregatedResult struct {
 // cmd main workflow will continue to process those child shards
 // until all aggregation pipelines return an empty slice of children.
 type cmd struct {
-	streamName             string
-	kds                    kds
-	aggregators            []Aggregator
-	shardTree              map[string][]string
-	limit                  int
-	period                 *period
-	aggregatorStackBuilder func() []Aggregator
+	streamName        string
+	kds               kds
+	shardTree         map[string][]string
+	limit             int
+	period            *period
+	aggregatorBuilder AggregatorBuilder
 }
 
 func (c *cmd) Start(ctx context.Context) error {
@@ -62,8 +63,8 @@ func (c *cmd) Start(ctx context.Context) error {
 		return err
 	}
 	defer c.deregisterConsumer(ctx, streamArn, consumerArn)
-	fmt.Print(color.YellowString("Consumer ARN %s OK!", consumerArn))
-	fmt.Print(color.YellowString("Listing shards for stream %s...", c.streamName))
+	fmt.Print(color.YellowString("Consumer ARN %s OK!\n", *consumerArn))
+	fmt.Print(color.YellowString("Listing shards for stream %s...\n", c.streamName))
 	shards, err := c.listShards(ctx, c.streamName)
 	if err != nil {
 		return err
@@ -97,13 +98,17 @@ func (c *cmd) Start(ctx context.Context) error {
 		case r := <-resultsChan:
 			pendingEnumerations--
 			bar.Increment()
+			if r.Error != nil {
+				// TODO: Cancel all Gs here.
+				return r.Error
+			}
 			results[r.ShardID] = r.Result
 			for _, cs := range r.ChildShards {
 				pendingEnumerations++
 				go c.aggregateAndReport(ctx, resultsChan, *cs.ShardId, *consumerArn)
 			}
 		case <-ctx.Done():
-			break
+			return ctx.Err()
 		}
 	}
 	close(resultsChan)
@@ -125,7 +130,7 @@ func (c *cmd) aggregateAndReport(ctx context.Context, resultsChan chan<- *aggreg
 }
 
 func (c *cmd) aggregateShard(ctx context.Context, shardID string, consumerArn string) *aggregatedResult {
-	aggregators := c.aggregatorStackBuilder()
+	aggregators := c.aggregatorBuilder()
 	for {
 		subscription, err := c.kds.SubscribeToShard(ctx, &kinesis.SubscribeToShardInput{
 			ConsumerARN: &consumerArn,
@@ -160,7 +165,7 @@ func (c *cmd) aggregateShard(ctx context.Context, shardID string, consumerArn st
 						}
 						if *value.MillisBehindLatest == 0 || stop {
 							r := make(map[string]interface{})
-							for _, a := range c.aggregators {
+							for _, a := range aggregators {
 								r[a.Name()] = a.Result()
 							}
 							return &aggregatedResult{
@@ -257,26 +262,35 @@ func (c *cmd) ensureEFOConsumer(ctx context.Context) (*string, *string, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	consumer, err := c.kds.DescribeStreamConsumer(ctx, &kinesis.DescribeStreamConsumerInput{
-		ConsumerName: aws.String(efoConsumerName),
-		StreamARN:    stream.StreamDescriptionSummary.StreamARN,
-	})
-	if err != nil {
-		var apiErr smithy.APIError
-		if errors.As(err, &apiErr) {
-			if _, ok := apiErr.(*types.ResourceNotFoundException); ok {
-				c, err := c.kds.RegisterStreamConsumer(ctx, &kinesis.RegisterStreamConsumerInput{
-					ConsumerName: aws.String(efoConsumerName),
-					StreamARN:    stream.StreamDescriptionSummary.StreamARN,
-				})
-				if err == nil {
-					return stream.StreamDescriptionSummary.StreamARN, c.Consumer.ConsumerARN, nil
+	for {
+		consumer, err := c.kds.DescribeStreamConsumer(ctx, &kinesis.DescribeStreamConsumerInput{
+			ConsumerName: aws.String(efoConsumerName),
+			StreamARN:    stream.StreamDescriptionSummary.StreamARN,
+		})
+		if err != nil {
+			var apiErr smithy.APIError
+			if errors.As(err, &apiErr) {
+				if _, ok := apiErr.(*types.ResourceNotFoundException); ok {
+					_, err := c.kds.RegisterStreamConsumer(ctx, &kinesis.RegisterStreamConsumerInput{
+						ConsumerName: aws.String(efoConsumerName),
+						StreamARN:    stream.StreamDescriptionSummary.StreamARN,
+					})
+					if err != nil {
+						return nil, nil, err
+					}
 				}
+			} else {
+				return nil, nil, err
 			}
+		} else {
+			// Consumer is not available for servicing until after sometime they are created.
+			// Therefore we wait until its status is Active.
+			if consumer.ConsumerDescription.ConsumerStatus == types.ConsumerStatusActive {
+				return stream.StreamDescriptionSummary.StreamARN, consumer.ConsumerDescription.ConsumerARN, nil
+			}
+			time.Sleep(time.Second * 5)
 		}
-		return nil, nil, err
 	}
-	return stream.StreamDescriptionSummary.StreamARN, consumer.ConsumerDescription.ConsumerARN, nil
 }
 
 func (c *cmd) deregisterConsumer(ctx context.Context, streamArn, consumerArn *string) error {
@@ -287,13 +301,13 @@ func (c *cmd) deregisterConsumer(ctx context.Context, streamArn, consumerArn *st
 	return err
 }
 
-func newCMD(streamName string, kds kds, aggregators []Aggregator, limit int, p *period) *cmd {
+func newCMD(streamName string, kds kds, aggregatorBuilder AggregatorBuilder, limit int, p *period) *cmd {
 	return &cmd{
-		kds:         kds,
-		streamName:  streamName,
-		aggregators: aggregators,
-		limit:       limit,
-		period:      p,
-		shardTree:   make(map[string][]string),
+		kds:               kds,
+		streamName:        streamName,
+		aggregatorBuilder: aggregatorBuilder,
+		limit:             limit,
+		period:            p,
+		shardTree:         make(map[string][]string),
 	}
 }

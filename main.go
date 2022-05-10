@@ -22,6 +22,15 @@ func init() {
 	flag.StringVar(&opts.end, "to", "", "end time for analysis")
 }
 
+func aggregatorBuilder(p *period) func() []Aggregator {
+	return func() []Aggregator {
+		aggregators := make([]Aggregator, 0)
+		aggregators = append(aggregators, newCount())
+		aggregators = append(aggregators, newIngress(p.start, p.end))
+		return aggregators
+	}
+}
+
 func main() {
 	var (
 		err error
@@ -42,19 +51,7 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	aggregators := make([]Aggregator, 0)
-	if opts.cms {
-		cms, err := newCMS(10, 1000000, opts.limit)
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		aggregators = append(aggregators, cms)
-	} else {
-		aggregators = append(aggregators, newCount())
-	}
-	aggregators = append(aggregators, newIngress(p.start, p.end))
-	err = newCMD(opts.stream, kinesis.NewFromConfig(cfg), aggregators, opts.limit, p).Start(ctx)
+	err = newCMD(opts.stream, kinesis.NewFromConfig(cfg), aggregatorBuilder(p), opts.limit, p).Start(ctx)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
