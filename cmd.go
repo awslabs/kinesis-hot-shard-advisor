@@ -3,42 +3,68 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
-	"log"
 	"os"
-	"sync"
 	"time"
 
 	_ "embed"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/kinesis"
 	"github.com/aws/aws-sdk-go-v2/service/kinesis/types"
+	smithy "github.com/aws/smithy-go"
 	"github.com/cheggaaa/pb"
 	"github.com/fatih/color"
 )
+
+const efoConsumerName string = "khs-062DE8C182964A218E936DF0938F48B3"
 
 //go:embed template.html
 var outputTemplate string
 
 type Aggregator interface {
 	Name() string
-	Aggregate(shardID string, record *types.Record)
-	Result(shardTree map[string][]string, limit int) map[string]interface{}
+	Aggregate(record *types.Record)
+	Result() interface{}
 }
 
+type aggregatedResult struct {
+	ShardID     string
+	ChildShards []types.ChildShard
+	Error       error
+	Result      map[string]interface{}
+}
+
+// cmd Implements the main workflow for hot shard analysis.
+// It first creates an EFO consumer. Then it enumerate shards
+// and for each top level shard to create an aggregator pipeline
+// to analyse usage stats.
+// An aggregation pipeline will return shard stats an any child
+// shards that should be processed.
+// cmd main workflow will continue to process those child shards
+// until all aggregation pipelines return an empty slice of children.
 type cmd struct {
-	streamName  string
-	kds         kds
-	aggregators []Aggregator
-	shardTree   map[string][]string
-	limit       int
-	period      *period
+	streamName             string
+	kds                    kds
+	aggregators            []Aggregator
+	shardTree              map[string][]string
+	limit                  int
+	period                 *period
+	aggregatorStackBuilder func() []Aggregator
 }
 
-func (i *cmd) Start(ctx context.Context) error {
-	fmt.Print(color.YellowString("Listing shards for stream %s...", i.streamName))
-	shards, err := i.listShards(ctx, i.streamName)
+func (c *cmd) Start(ctx context.Context) error {
+	color.Yellow("Creating an EFO consumer...")
+	streamArn, consumerArn, err := c.ensureEFOConsumer(ctx)
+	if err != nil {
+		return err
+	}
+	defer c.deregisterConsumer(ctx, streamArn, consumerArn)
+	fmt.Print(color.YellowString("Consumer ARN %s OK!", consumerArn))
+	fmt.Print(color.YellowString("Listing shards for stream %s...", c.streamName))
+	shards, err := c.listShards(ctx, c.streamName)
 	if err != nil {
 		return err
 	}
@@ -50,94 +76,106 @@ func (i *cmd) Start(ctx context.Context) error {
 	for _, shard := range shards {
 		shardsSet[*shard.ShardId] = true
 	}
+	// Hold results from each enumeration in a map
+	// keyed by shard ID.
+	results := make(map[string]map[string]interface{})
+	resultsChan := make(chan *aggregatedResult)
 	bar := pb.StartNew(len(shards))
+	pendingEnumerations := 0
 	for _, shard := range shards {
-		isTopLevelShard := false
+		hasActiveParent := false
 		if shard.ParentShardId != nil {
-			_, isTopLevelShard = shardsSet[*shard.ParentShardId]
+			_, hasActiveParent = shardsSet[*shard.ParentShardId]
 		}
-		if !isTopLevelShard {
-			err := i.enumerate(ctx, shard.ShardId)
-			if err != nil {
-				return err
-			}
+		if !hasActiveParent {
+			pendingEnumerations++
+			go c.aggregateAndReport(ctx, resultsChan, *shard.ShardId, *consumerArn)
 		}
-		bar.Increment()
 	}
+	for pendingEnumerations > 0 {
+		select {
+		case r := <-resultsChan:
+			pendingEnumerations--
+			bar.Increment()
+			results[r.ShardID] = r.Result
+			for _, cs := range r.ChildShards {
+				pendingEnumerations++
+				go c.aggregateAndReport(ctx, resultsChan, *cs.ShardId, *consumerArn)
+			}
+		case <-ctx.Done():
+			break
+		}
+	}
+	close(resultsChan)
 	bar.Finish()
-	i.generateReport()
+	color.Yellow("Generating output...")
+	c.generateReport(results)
+	color.Yellow("Done")
 	return nil
 }
 
-func (i *cmd) enumerate(ctx context.Context, shardID *string) error {
-	var (
-		si *string
-	)
-	gsii := &kinesis.GetShardIteratorInput{
-		StreamName:        &i.streamName,
-		ShardId:           shardID,
-		ShardIteratorType: types.ShardIteratorTypeAtTimestamp,
-		Timestamp:         &i.period.start,
-	}
-	iter, err := i.kds.GetShardIterator(ctx, gsii)
-	if err != nil {
-		return err
-	}
-	si = iter.ShardIterator
-	tokens := 0
-	egress := 0
-	startTime := time.Now()
-	for si != nil {
-		tokens = tokens + 1
-		if tokens > 5 || egress > 10*1024*1024 {
-			duration := time.Since(startTime) + time.Millisecond*10
-			if duration < time.Second {
-				log.Printf("tokens:%d egress: %d", tokens, egress)
-				time.Sleep(time.Second - duration)
-			}
-			tokens = 0
-			egress = 0
-			startTime = time.Now()
+func (c *cmd) aggregateAndReport(ctx context.Context, resultsChan chan<- *aggregatedResult, shardID, consumerArn string) {
+	result := c.aggregateShard(ctx, shardID, consumerArn)
+	if result != nil {
+		select {
+		case resultsChan <- result:
+		case <-ctx.Done():
 		}
+	}
+}
 
-		gro, err := i.kds.GetRecords(ctx, &kinesis.GetRecordsInput{
-			ShardIterator: si,
+func (c *cmd) aggregateShard(ctx context.Context, shardID string, consumerArn string) *aggregatedResult {
+	aggregators := c.aggregatorStackBuilder()
+	for {
+		subscription, err := c.kds.SubscribeToShard(ctx, &kinesis.SubscribeToShardInput{
+			ConsumerARN: &consumerArn,
+			ShardId:     &shardID,
+			StartingPosition: &types.StartingPosition{
+				Type:      types.ShardIteratorTypeAtTimestamp,
+				Timestamp: &c.period.start,
+			},
 		})
 		if err != nil {
-			return err
+			return &aggregatedResult{Error: err}
 		}
-		si = gro.NextShardIterator
-		for _, r := range gro.Records {
-			if i.period.end.Sub(*r.ApproximateArrivalTimestamp) < 0 {
+		subscribed := true
+		for subscribed {
+			select {
+			case event, ok := <-subscription.GetStream().Events():
+				if !ok {
+					subscribed = false
+				} else {
+					if tevent, ok := event.(*types.SubscribeToShardEventStreamMemberSubscribeToShardEvent); ok {
+						value := tevent.Value
+						stop := false
+						for _, r := range value.Records {
+							if c.period.end.Sub(*r.ApproximateArrivalTimestamp) > 0 {
+								for _, a := range aggregators {
+									a.Aggregate(&r)
+								}
+							} else {
+								stop = true
+								break
+							}
+						}
+						if *value.MillisBehindLatest == 0 || stop {
+							r := make(map[string]interface{})
+							for _, a := range c.aggregators {
+								r[a.Name()] = a.Result()
+							}
+							return &aggregatedResult{
+								ShardID:     shardID,
+								ChildShards: value.ChildShards,
+								Result:      r,
+							}
+						}
+					}
+				}
+			case <-ctx.Done():
 				return nil
 			}
-			egress = egress + len(r.Data)
-			wg := sync.WaitGroup{}
-			wg.Add(len(i.aggregators))
-
-			for _, a := range i.aggregators {
-				go func(a Aggregator) {
-					a.Aggregate(*shardID, &r)
-					wg.Done()
-				}(a)
-			}
-			wg.Wait()
-		}
-		if len(gro.ChildShards) > 0 {
-			i.shardTree[*shardID] = make([]string, len(gro.ChildShards))
-			for idx, cs := range gro.ChildShards {
-				err := i.enumerate(ctx, cs.ShardId)
-				if err != nil {
-					return err
-				}
-				i.shardTree[*shardID][idx] = *cs.ShardId
-			}
-		}
-		if *gro.MillisBehindLatest == 0 {
-			return nil
 		}
 	}
-	return nil
 }
 
 func (i *cmd) listShards(ctx context.Context, streamName string) ([]types.Shard, error) {
@@ -162,7 +200,7 @@ func (i *cmd) listShards(ctx context.Context, streamName string) ([]types.Shard,
 	return r, nil
 }
 
-func (i *cmd) generateReport() {
+func (i *cmd) generateReport(stats map[string]map[string]interface{}) {
 	type shardStats struct {
 		ShardID string                 `json:"shardId"`
 		Stats   map[string]interface{} `json:"stats"`
@@ -170,16 +208,6 @@ func (i *cmd) generateReport() {
 	type report struct {
 		From   int          `json:"from"`
 		Shards []shardStats `json:"shards"`
-	}
-	stats := make(map[string]map[string]interface{})
-	for _, a := range i.aggregators {
-		result := a.Result(i.shardTree, i.limit)
-		for sid, data := range result {
-			if _, ok := stats[sid]; !ok {
-				stats[sid] = make(map[string]interface{})
-			}
-			stats[sid][a.Name()] = data
-		}
 	}
 	data := make([]shardStats, 0)
 	for sid, v := range stats {
@@ -220,6 +248,43 @@ func (i *cmd) generateReport() {
 		panic(err)
 	}
 	fmt.Printf("output is written to %s\n", fname)
+}
+
+func (c *cmd) ensureEFOConsumer(ctx context.Context) (*string, *string, error) {
+	stream, err := c.kds.DescribeStreamSummary(ctx, &kinesis.DescribeStreamSummaryInput{
+		StreamName: &c.streamName,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	consumer, err := c.kds.DescribeStreamConsumer(ctx, &kinesis.DescribeStreamConsumerInput{
+		ConsumerName: aws.String(efoConsumerName),
+		StreamARN:    stream.StreamDescriptionSummary.StreamARN,
+	})
+	if err != nil {
+		var apiErr smithy.APIError
+		if errors.As(err, &apiErr) {
+			if _, ok := apiErr.(*types.ResourceNotFoundException); ok {
+				c, err := c.kds.RegisterStreamConsumer(ctx, &kinesis.RegisterStreamConsumerInput{
+					ConsumerName: aws.String(efoConsumerName),
+					StreamARN:    stream.StreamDescriptionSummary.StreamARN,
+				})
+				if err == nil {
+					return stream.StreamDescriptionSummary.StreamARN, c.Consumer.ConsumerARN, nil
+				}
+			}
+		}
+		return nil, nil, err
+	}
+	return stream.StreamDescriptionSummary.StreamARN, consumer.ConsumerDescription.ConsumerARN, nil
+}
+
+func (c *cmd) deregisterConsumer(ctx context.Context, streamArn, consumerArn *string) error {
+	_, err := c.kds.DeregisterStreamConsumer(ctx, &kinesis.DeregisterStreamConsumerInput{
+		StreamARN:   streamArn,
+		ConsumerARN: consumerArn,
+	})
+	return err
 }
 
 func newCMD(streamName string, kds kds, aggregators []Aggregator, limit int, p *period) *cmd {

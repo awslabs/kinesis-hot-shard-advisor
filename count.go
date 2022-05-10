@@ -7,44 +7,37 @@ import (
 )
 
 type count struct {
-	store map[string]map[string]int
+	store map[string]int
 }
 
 func (c *count) Name() string {
 	return "count"
 }
 
-func (c *count) Aggregate(shardID string, r *types.Record) {
-	if _, ok := c.store[shardID]; !ok {
-		c.store[shardID] = make(map[string]int)
-	}
-	c.store[shardID][*r.PartitionKey] = c.store[shardID][*r.PartitionKey] + 1
+func (c *count) Aggregate(r *types.Record) {
+	c.store[*r.PartitionKey] = c.store[*r.PartitionKey] + 1
 }
 
-func (c *count) Result(shardTree map[string][]string, limit int) map[string]interface{} {
+func (c *count) Result() interface{} {
 	type record struct {
 		PartitionKey string `json:"partitionKey"`
 		Count        int    `json:"count"`
 	}
-	out := make(map[string]interface{})
-	for shardID, partitionKeys := range c.store {
-		records := make([]record, 0)
-		for partitionKey, count := range partitionKeys {
-			records = append(records, record{
-				PartitionKey: partitionKey,
-				Count:        count,
-			})
-		}
-		sort.Slice(records, func(i, j int) bool {
-			return records[i].Count > records[j].Count
+	records := make([]record, 0)
+	for partitionKey, count := range c.store {
+		records = append(records, record{
+			PartitionKey: partitionKey,
+			Count:        count,
 		})
-		out[shardID] = records
 	}
-	return out
+	sort.Slice(records, func(i, j int) bool {
+		return records[i].Count > records[j].Count
+	})
+	return records
 }
 
 func newCount() *count {
 	return &count{
-		store: make(map[string]map[string]int),
+		store: make(map[string]int),
 	}
 }

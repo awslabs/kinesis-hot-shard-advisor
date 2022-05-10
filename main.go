@@ -22,10 +22,6 @@ func init() {
 	flag.StringVar(&opts.end, "to", "", "end time for analysis")
 }
 
-// Workflow
-// Enumerate shards
-// Create an EFO consumer
-// Subscribe to each shard and receive records
 func main() {
 	var (
 		err error

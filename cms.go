@@ -35,7 +35,7 @@ func (c *cms) Aggregate(shardID string, r *types.Record) {
 	c.count++
 }
 
-func (c *cms) Result(shardTree map[string][]string, limit int) map[string]interface{} {
+func (c *cms) Result(shardTree map[string][]string, limit int) interface{} {
 	type record struct {
 		PartitionKey string
 		Count        int
