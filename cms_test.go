@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"golang.org/x/exp/slices"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/kinesis/types"
@@ -13,6 +15,22 @@ import (
 var c *cms
 
 func TestCMS(t *testing.T) {
+	c, err := newCMS(5, 5, 5)
+	if err != nil {
+		t.FailNow()
+	}
+	keys := []string{"a", "b", "c", "d", "e"}
+	c.Aggregate(&types.Record{PartitionKey: aws.String("a")})
+	c.Aggregate(&types.Record{PartitionKey: aws.String("b")})
+	c.Aggregate(&types.Record{PartitionKey: aws.String("c")})
+	c.Aggregate(&types.Record{PartitionKey: aws.String("d")})
+	c.Aggregate(&types.Record{PartitionKey: aws.String("e")})
+	c.Aggregate(&types.Record{PartitionKey: aws.String("a")})
+	r := c.Result().([]record)
+	assert.Equal(t, "a", r[0].PartitionKey)
+	for _, r := range r {
+		assert.True(t, slices.Contains(keys, r.PartitionKey))
+	}
 }
 
 func BenchmarkNewCMS10x10x10(b *testing.B) {
