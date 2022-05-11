@@ -25,7 +25,15 @@ func init() {
 func aggregatorBuilder(p *period) func() []Aggregator {
 	return func() []Aggregator {
 		aggregators := make([]Aggregator, 0)
-		aggregators = append(aggregators, newCount())
+		if opts.cms {
+			c, err := newCMS(5, 10000, opts.limit)
+			if err != nil {
+				panic(err)
+			}
+			aggregators = append(aggregators, c)
+		} else {
+			aggregators = append(aggregators, newCount())
+		}
 		aggregators = append(aggregators, newIngress(p.start, p.end))
 		return aggregators
 	}

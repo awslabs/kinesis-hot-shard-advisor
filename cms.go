@@ -9,17 +9,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/kinesis/types"
 )
 
-type partitionKeyCountByShard struct {
-	PartitionKey   string `json:"partitionKey"`
-	ShardID        string `json:"shardId"`
-	Count          int    `json:"count"`
-	SplitCandidate string `json:"splitCandidate"`
+type record struct {
+	PartitionKey string `json:"partitionKey"`
+	Count        int    `json:"count"`
 }
 
 type cms struct {
 	sketch map[string][]int
 	seed   maphash.Seed
-	topK   []partitionKeyCountByShard
+	topK   []record
 	count  int64
 }
 
@@ -27,43 +25,28 @@ func (c *cms) Name() string {
 	return "cms"
 }
 
-func (c *cms) Aggregate(shardID string, r *types.Record) {
+func (c *cms) Aggregate(r *types.Record) {
 	u := c.addToSketch(*r.PartitionKey)
-	if !c.updateTopK(*r.PartitionKey, shardID, u) {
-		c.addToTopK(*r.PartitionKey, shardID, u)
+	if !c.updateTopK(*r.PartitionKey, u) {
+		c.addToTopK(*r.PartitionKey, u)
 	}
 	c.count++
 }
 
-func (c *cms) Result(shardTree map[string][]string, limit int) interface{} {
-	type record struct {
-		PartitionKey string
-		Count        int
-	}
-	result := make(map[string]interface{})
-	for _, i := range c.topK {
-		var (
-			records []record
-		)
-		if a, ok := result[i.ShardID]; !ok {
-			records = make([]record, 0)
-		} else {
-			records = a.([]record)
-		}
-		result[i.ShardID] = append(records, record{i.PartitionKey, i.Count})
-	}
-	return result
+func (c *cms) Result() interface{} {
+	return c.topK
 }
 
-func (c *cms) updateTopK(key, shardID string, count int) bool {
+// updateTopK finds the partition key in current top list and updates
+// its count. If the partition key is not found in the top list, this
+// method returns false otherwise true.
+func (c *cms) updateTopK(key string, count int) bool {
 	for i := 0; i < len(c.topK); i++ {
 		r := &c.topK[i]
-		if r.Count == 0 {
-			return false
-		}
 		if r.PartitionKey == key {
-			r.ShardID = shardID
 			r.Count = count
+			// Now that we've updated the count for the item for key
+			// shift it up so that the list is still sorted.
 			for j := i; j > 0; j-- {
 				if c.topK[j].Count > c.topK[j-1].Count {
 					t := c.topK[j-1]
@@ -77,13 +60,12 @@ func (c *cms) updateTopK(key, shardID string, count int) bool {
 	return false
 }
 
-func (c *cms) addToTopK(key, shardID string, count int) {
+func (c *cms) addToTopK(key string, count int) {
 	if c.topK[len(c.topK)-1].Count > count {
 		return
 	}
-	r := partitionKeyCountByShard{
+	r := record{
 		PartitionKey: key,
-		ShardID:      shardID,
 		Count:        count,
 	}
 	c.topK[len(c.topK)-1] = r
@@ -128,6 +110,6 @@ func newCMS(hashes, slots, limit int) (*cms, error) {
 	return &cms{
 		sketch: sketch,
 		seed:   maphash.MakeSeed(),
-		topK:   make([]partitionKeyCountByShard, limit),
+		topK:   make([]record, limit),
 	}, nil
 }

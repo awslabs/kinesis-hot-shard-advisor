@@ -62,7 +62,8 @@
             var startTime = report.from;
             for(var shard of report.shards) {
                 renderIngressGraph(shard.shardId, shard.stats['ingress'].map((_, i) => new Date((startTime + i) * 1000)), shard.stats['ingress']);
-                renderCountGraph(shard.shardId, shard.stats['count'].slice(0, options.limit).map(i => i.partitionKey), shard.stats['count'].slice(0, options.limit).map(i => i.count));
+                var countStat = shard.stats['count'] || shard.stats['cms'] || [];
+                renderCountGraph(shard.shardId, countStat.slice(0, options.limit).map(i => i.partitionKey), countStat.slice(0, options.limit).map(i => i.count));
             }
         }
 
