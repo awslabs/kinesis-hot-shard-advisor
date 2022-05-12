@@ -57,6 +57,7 @@ type cmd struct {
 }
 
 func (c *cmd) Start(ctx context.Context) error {
+	color.Green("Stream: %s\nFrom: %v\nTo: %v", c.streamName, c.period.start, c.period.end)
 	fmt.Print(color.YellowString("Creating an EFO consumer..."))
 	streamArn, consumerArn, err := c.ensureEFOConsumer(ctx)
 	if err != nil {
