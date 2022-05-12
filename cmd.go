@@ -179,7 +179,7 @@ func (c *cmd) aggregateShard(ctx context.Context, shardID string, consumerArn st
 								break
 							}
 						}
-						if continuationSequenceNumber == nil || stop {
+						if continuationSequenceNumber == nil || *value.MillisBehindLatest == 0 || stop {
 							r := make(map[string]interface{})
 							for _, a := range aggregators {
 								r[a.Name()] = a.Result()
