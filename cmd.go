@@ -268,7 +268,7 @@ func (i *cmd) generateReport(stats map[string]map[string]interface{}) {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf(color.YellowString(": %s ", fname))
+	fmt.Print(color.YellowString(": %s ", fname))
 }
 
 func (c *cmd) ensureEFOConsumer(ctx context.Context) (*string, *string, error) {
