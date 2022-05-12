@@ -35,7 +35,6 @@ func (i *ingress) Result() interface{} {
 func newIngress(start, end time.Time) *ingress {
 	min := start.Unix()
 	max := end.Unix()
-
 	return &ingress{
 		min:   min,
 		max:   max,
