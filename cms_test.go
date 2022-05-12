@@ -20,15 +20,16 @@ func TestCMS(t *testing.T) {
 	}
 	testCases := []struct {
 		given []input
-		want  string
+		want  []string
 	}{
-		{[]input{{"a", 5}}, "a"},
-		{[]input{{"a", 5}, {"b", 6}}, "b"},
-		{[]input{{"a", 5}, {"b", 6}, {"a", 1}}, "a"},
+		{[]input{{"a", 5}}, []string{"a", ""}},
+		{[]input{{"a", 5}, {"b", 6}}, []string{"b", "a"}},
+		{[]input{{"a", 5}, {"b", 6}, {"a", 1}}, []string{"a", "b"}},
+		{[]input{{"a", 5}, {"b", 6}, {"c", 1}}, []string{"a", "b"}},
 	}
 
 	for _, tc := range testCases {
-		cmsAggregator, err := newCMS(5, 5, 1)
+		cmsAggregator, err := newCMS(5, 5, 2)
 		if err != nil {
 			t.FailNow()
 		}
@@ -38,7 +39,11 @@ func TestCMS(t *testing.T) {
 			}
 		}
 		r := cmsAggregator.Result().([]record)
-		assert.Equal(t, tc.want, r[0].PartitionKey)
+		keys := make([]string, 0)
+		for _, k := range r {
+			keys = append(keys, k.PartitionKey)
+		}
+		assert.ElementsMatch(t, tc.want, keys)
 		assert.Greater(t, r[0].Count, 1)
 	}
 }
