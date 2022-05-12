@@ -57,19 +57,19 @@ type cmd struct {
 }
 
 func (c *cmd) Start(ctx context.Context) error {
-	color.Yellow("Creating an EFO consumer...")
+	fmt.Print(color.YellowString("Creating an EFO consumer..."))
 	streamArn, consumerArn, err := c.ensureEFOConsumer(ctx)
 	if err != nil {
 		return err
 	}
 	defer c.deregisterConsumer(ctx, streamArn, consumerArn)
-	fmt.Print(color.YellowString("Consumer ARN %s OK!\n", *consumerArn))
-	fmt.Print(color.YellowString("Listing shards for stream %s...\n", c.streamName))
+	color.Yellow(": %s OK!\n", *consumerArn)
+	fmt.Print(color.YellowString("Listing shards for stream %s...", c.streamName))
 	shards, err := c.listShards(ctx, c.streamName)
 	if err != nil {
 		return err
 	}
-	color.Yellow("OK!")
+	color.Yellow(" OK!")
 	// Store all shard ids in a map so that we can
 	// quickly check if a given shard id exists in the
 	// list or not.
@@ -77,13 +77,15 @@ func (c *cmd) Start(ctx context.Context) error {
 	for _, shard := range shards {
 		shardsSet[*shard.ShardId] = true
 	}
-	// Hold results from each enumeration in a map
-	// keyed by shard ID.
 	results := make(map[string]map[string]interface{})
 	resultsChan := make(chan *aggregatedResult)
 	bar := pb.StartNew(len(shards))
 	pendingEnumerations := 0
 	for _, shard := range shards {
+		// Start aggregating from shards that don't have an
+		// active parent.  If there's an active parent, aggregateAndReport
+		// would return child shards after the parent is read. It's important
+		// process shards in this manner to respect the delivery order of records.
 		hasActiveParent := false
 		if shard.ParentShardId != nil {
 			_, hasActiveParent = shardsSet[*shard.ParentShardId]
@@ -113,9 +115,9 @@ func (c *cmd) Start(ctx context.Context) error {
 	}
 	close(resultsChan)
 	bar.Finish()
-	color.Yellow("Generating output...")
+	fmt.Print(color.YellowString("Generating output..."))
 	c.generateReport(results)
-	color.Yellow("Done")
+	color.Yellow("OK!")
 	return nil
 }
 
@@ -252,7 +254,7 @@ func (i *cmd) generateReport(stats map[string]map[string]interface{}) {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("output is written to %s\n", fname)
+	fmt.Printf(": %s ", fname)
 }
 
 func (c *cmd) ensureEFOConsumer(ctx context.Context) (*string, *string, error) {
@@ -294,10 +296,12 @@ func (c *cmd) ensureEFOConsumer(ctx context.Context) (*string, *string, error) {
 }
 
 func (c *cmd) deregisterConsumer(ctx context.Context, streamArn, consumerArn *string) error {
+	fmt.Print(color.YellowString("Deleting EFO Consumer..."))
 	_, err := c.kds.DeregisterStreamConsumer(ctx, &kinesis.DeregisterStreamConsumerInput{
 		StreamARN:   streamArn,
 		ConsumerARN: consumerArn,
 	})
+	color.Yellow("OK!")
 	return err
 }
 
