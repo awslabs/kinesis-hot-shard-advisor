@@ -6,7 +6,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/exp/slices"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/kinesis/types"
@@ -15,21 +14,32 @@ import (
 var c *cms
 
 func TestCMS(t *testing.T) {
-	c, err := newCMS(5, 5, 5)
-	if err != nil {
-		t.FailNow()
+	type input struct {
+		key   string
+		count int
 	}
-	keys := []string{"a", "b", "c", "d", "e"}
-	c.Aggregate(&types.Record{PartitionKey: aws.String("a")})
-	c.Aggregate(&types.Record{PartitionKey: aws.String("b")})
-	c.Aggregate(&types.Record{PartitionKey: aws.String("c")})
-	c.Aggregate(&types.Record{PartitionKey: aws.String("d")})
-	c.Aggregate(&types.Record{PartitionKey: aws.String("e")})
-	c.Aggregate(&types.Record{PartitionKey: aws.String("a")})
-	r := c.Result().([]record)
-	assert.Equal(t, "a", r[0].PartitionKey)
-	for _, r := range r {
-		assert.True(t, slices.Contains(keys, r.PartitionKey))
+	testCases := []struct {
+		given []input
+		want  string
+	}{
+		{[]input{{"a", 5}}, "a"},
+		{[]input{{"a", 5}, {"b", 6}}, "b"},
+		{[]input{{"a", 5}, {"b", 6}, {"a", 1}}, "a"},
+	}
+
+	for _, tc := range testCases {
+		cmsAggregator, err := newCMS(5, 5, 1)
+		if err != nil {
+			t.FailNow()
+		}
+		for _, g := range tc.given {
+			for i := 0; i < g.count; i++ {
+				cmsAggregator.Aggregate(&types.Record{PartitionKey: &g.key})
+			}
+		}
+		r := cmsAggregator.Result().([]record)
+		assert.Equal(t, tc.want, r[0].PartitionKey)
+		assert.Greater(t, r[0].Count, 1)
 	}
 }
 
