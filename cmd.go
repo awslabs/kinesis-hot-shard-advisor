@@ -132,15 +132,27 @@ func (c *cmd) aggregateAndReport(ctx context.Context, resultsChan chan<- *aggreg
 }
 
 func (c *cmd) aggregateShard(ctx context.Context, shardID string, consumerArn string) *aggregatedResult {
+	var (
+		continuationSequenceNumber *string
+		startingPosition           *types.StartingPosition
+	)
 	aggregators := c.aggregatorBuilder()
 	for {
-		subscription, err := c.kds.SubscribeToShard(ctx, &kinesis.SubscribeToShardInput{
-			ConsumerARN: &consumerArn,
-			ShardId:     &shardID,
-			StartingPosition: &types.StartingPosition{
+		if continuationSequenceNumber == nil {
+			startingPosition = &types.StartingPosition{
 				Type:      types.ShardIteratorTypeAtTimestamp,
 				Timestamp: &c.period.start,
-			},
+			}
+		} else {
+			startingPosition = &types.StartingPosition{
+				Type:           types.ShardIteratorTypeAtSequenceNumber,
+				SequenceNumber: continuationSequenceNumber,
+			}
+		}
+		subscription, err := c.kds.SubscribeToShard(ctx, &kinesis.SubscribeToShardInput{
+			ConsumerARN:      &consumerArn,
+			ShardId:          &shardID,
+			StartingPosition: startingPosition,
 		})
 		if err != nil {
 			return &aggregatedResult{Error: err}
@@ -154,6 +166,7 @@ func (c *cmd) aggregateShard(ctx context.Context, shardID string, consumerArn st
 				} else {
 					if tevent, ok := event.(*types.SubscribeToShardEventStreamMemberSubscribeToShardEvent); ok {
 						value := tevent.Value
+						continuationSequenceNumber = value.ContinuationSequenceNumber
 						stop := false
 						for _, r := range value.Records {
 							if c.period.end.Sub(*r.ApproximateArrivalTimestamp) > 0 {
@@ -165,7 +178,7 @@ func (c *cmd) aggregateShard(ctx context.Context, shardID string, consumerArn st
 								break
 							}
 						}
-						if *value.MillisBehindLatest == 0 || stop {
+						if continuationSequenceNumber == nil || stop {
 							r := make(map[string]interface{})
 							for _, a := range aggregators {
 								r[a.Name()] = a.Result()
