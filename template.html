@@ -61,7 +61,7 @@
             var secondLabels = [];
             var startTime = report.from;
             for(var shard of report.shards) {
-                renderIngressGraph(shard.shardId, shard.stats['ingress'].map((_, i) => new Date((startTime + i) * 1000)), shard.stats['ingress']);
+                renderIngressGraph(shard.shardId, shard.stats['ingress'].map((_, i) => new Date((startTime + i) * 1000)), shard.stats['ingress'].map((v, _) => v / 1024/ 1024));
                 var countStat = shard.stats['count'] || shard.stats['cms'] || [];
                 renderCountGraph(shard.shardId, countStat.slice(0, options.limit).map(i => i.partitionKey), countStat.slice(0, options.limit).map(i => i.count));
             }
@@ -74,7 +74,7 @@
                 data: {
                     labels: labels,
                     datasets: [{
-                        label: 'bytes/sec',
+                        label: 'MB/sec',
                         data: values,
                         fill: false,
                         borderColor: 'rgb(75, 192, 192)'
@@ -102,7 +102,7 @@
                             grid: {
                                 display: false
                             }
-                        }
+                        },
                     }
                 }
             });
