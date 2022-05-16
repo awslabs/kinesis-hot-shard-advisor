@@ -62,7 +62,7 @@
     <script>
         function summarise() {
             var summary = report.shards.map((s, _) => ({shardId: s.shardId, sum: s.stats['ingress']['sum'], max: s.stats['ingress']['max']}));
-            summary.sort((a, b) => b.max - a.max);
+            summary.sort((a, b) => b.max - a.max || b.sum - a.sum);
             return summary
         }
 
