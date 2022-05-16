@@ -29,8 +29,8 @@ func (i *ingress) Aggregate(record *types.Record) {
 	n := (an - i.min)
 	i.timeSeries[n] = i.timeSeries[n] + len(record.Data)
 	i.sum = i.sum + len(record.Data)
-	if i.maxIngress < len(record.Data) {
-		i.maxIngress = len(record.Data)
+	if i.maxIngress < i.timeSeries[n] {
+		i.maxIngress = i.timeSeries[n]
 	}
 }
 
