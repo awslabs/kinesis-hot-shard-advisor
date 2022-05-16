@@ -34,9 +34,9 @@
         </p>
         <table>
             <thead>
-            <th style="width:250px;">Shard ID</th>
-            <th style="width:100px;">Max (bytes)</th>
-            <th style="width:100px;">Sum (bytes)</th>
+            <th style="width:350px;">Shard ID</th>
+            <th style="width:225px;">Max</th>
+            <th style="width:225px;">Sum</th>
             </thead>
             <tbody id="report-summary"></tbody>
         </table>
@@ -60,9 +60,23 @@
         </div>
     </script>
     <script>
+        function humanizeBytes(v) {
+            var units = ['B', 'KB', 'MB', 'GB', 'TB'];
+            var unit = 0;
+            while(v > 1024 && unit < units.length) {
+                v = v / 1024;
+                unit++;
+            }
+            return `${v.toFixed(2)} ${units[unit]}`;
+        }
+
         function summarise() {
             var summary = report.shards.map((s, _) => ({shardId: s.shardId, sum: s.stats['ingress']['sum'], max: s.stats['ingress']['max']}));
             summary.sort((a, b) => b.max - a.max || b.sum - a.sum);
+            for(var s of summary) {
+                s.sum = humanizeBytes(s.sum);
+                s.max = humanizeBytes(s.max);
+            }
             return summary
         }
 
