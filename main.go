@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/kinesis"
@@ -53,7 +54,16 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	ctx = context.Background()
+	// Create a context that can be used
+	// to handle SIGINT.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt)
+	go func() {
+		<-signals
+		cancel()
+	}()
 	cfg, err := config.LoadDefaultConfig(ctx)
 	if err != nil {
 		fmt.Println(err)
