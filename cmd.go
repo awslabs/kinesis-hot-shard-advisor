@@ -63,7 +63,7 @@ func (c *cmd) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer c.deregisterConsumer(ctx, streamArn, consumerArn)
+	defer c.deregisterConsumer(streamArn, consumerArn)
 	color.Yellow(": %s OK!\n", *consumerArn)
 	fmt.Print(color.YellowString("Listing shards for stream %s...", c.streamName))
 	shards, err := c.listShards(ctx, c.streamName)
@@ -97,25 +97,24 @@ func (c *cmd) Start(ctx context.Context) error {
 		}
 	}
 	for pendingEnumerations > 0 {
-		select {
-		case r := <-resultsChan:
-			pendingEnumerations--
-			bar.Increment()
-			if r.Error != nil {
-				// TODO: Cancel all Gs here.
-				return r.Error
-			}
+		r := <-resultsChan
+		pendingEnumerations--
+		bar.Increment()
+		if r.Error == nil {
 			results[r.ShardID] = r.Result
 			for _, cs := range r.ChildShards {
 				pendingEnumerations++
 				go c.aggregateAndReport(ctx, resultsChan, *cs.ShardId, *consumerArn)
 			}
-		case <-ctx.Done():
-			return ctx.Err()
+		} else {
+			err = r.Error
 		}
 	}
 	close(resultsChan)
 	bar.Finish()
+	if err != nil {
+		return err
+	}
 	fmt.Print(color.YellowString("Generating output..."))
 	c.generateReport(results)
 	color.Yellow("OK!")
@@ -123,13 +122,7 @@ func (c *cmd) Start(ctx context.Context) error {
 }
 
 func (c *cmd) aggregateAndReport(ctx context.Context, resultsChan chan<- *aggregatedResult, shardID, consumerArn string) {
-	result := c.aggregateShard(ctx, shardID, consumerArn)
-	if result != nil {
-		select {
-		case resultsChan <- result:
-		case <-ctx.Done():
-		}
-	}
+	resultsChan <- c.aggregateShard(ctx, shardID, consumerArn)
 }
 
 func (c *cmd) aggregateShard(ctx context.Context, shardID string, consumerArn string) *aggregatedResult {
@@ -193,7 +186,7 @@ func (c *cmd) aggregateShard(ctx context.Context, shardID string, consumerArn st
 					}
 				}
 			case <-ctx.Done():
-				return nil
+				return &aggregatedResult{Error: ctx.Err()}
 			}
 		}
 	}
@@ -309,14 +302,18 @@ func (c *cmd) ensureEFOConsumer(ctx context.Context) (*string, *string, error) {
 	}
 }
 
-func (c *cmd) deregisterConsumer(ctx context.Context, streamArn, consumerArn *string) error {
+func (c *cmd) deregisterConsumer(streamArn, consumerArn *string) {
 	fmt.Print(color.YellowString("Deleting EFO Consumer..."))
-	_, err := c.kds.DeregisterStreamConsumer(ctx, &kinesis.DeregisterStreamConsumerInput{
+	_, err := c.kds.DeregisterStreamConsumer(context.Background(), &kinesis.DeregisterStreamConsumerInput{
 		StreamARN:   streamArn,
 		ConsumerARN: consumerArn,
 	})
-	color.Yellow("OK!")
-	return err
+	if err != nil {
+		color.Cyan("FAILED!")
+		color.Red("%v", err)
+	} else {
+		color.Yellow("OK!")
+	}
 }
 
 func newCMD(streamName string, kds kds, aggregatorBuilder AggregatorBuilder, limit int, p *period) *cmd {
