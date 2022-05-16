@@ -84,7 +84,7 @@ func (c *cmd) Start(ctx context.Context) error {
 	pendingEnumerations := 0
 	for _, shard := range shards {
 		// Start aggregating from shards that don't have an
-		// active parent.  If there's an active parent, aggregateAndReport
+		// active parent.  If there's an active parent, aggregateShard
 		// would return child shards after the parent is read. It's important
 		// process shards in this manner to respect the delivery order of records.
 		hasActiveParent := false
@@ -93,7 +93,7 @@ func (c *cmd) Start(ctx context.Context) error {
 		}
 		if !hasActiveParent {
 			pendingEnumerations++
-			go c.aggregateAndReport(ctx, resultsChan, *shard.ShardId, *consumerArn)
+			go c.aggregateShard(ctx, resultsChan, *shard.ShardId, *consumerArn)
 		}
 	}
 	for pendingEnumerations > 0 {
@@ -104,7 +104,7 @@ func (c *cmd) Start(ctx context.Context) error {
 			results[r.ShardID] = r.Result
 			for _, cs := range r.ChildShards {
 				pendingEnumerations++
-				go c.aggregateAndReport(ctx, resultsChan, *cs.ShardId, *consumerArn)
+				go c.aggregateShard(ctx, resultsChan, *cs.ShardId, *consumerArn)
 			}
 		} else {
 			err = r.Error
@@ -121,16 +121,14 @@ func (c *cmd) Start(ctx context.Context) error {
 	return nil
 }
 
-func (c *cmd) aggregateAndReport(ctx context.Context, resultsChan chan<- *aggregatedResult, shardID, consumerArn string) {
-	resultsChan <- c.aggregateShard(ctx, shardID, consumerArn)
-}
-
-func (c *cmd) aggregateShard(ctx context.Context, shardID string, consumerArn string) *aggregatedResult {
+func (c *cmd) aggregateShard(ctx context.Context, resultsChan chan<- *aggregatedResult, shardID, consumerArn string) {
 	var (
 		continuationSequenceNumber *string
 		startingPosition           *types.StartingPosition
 	)
 	aggregators := c.aggregatorBuilder()
+	// Kinesis Subscriptions expire after 5 minutes.
+	// This loop ensures that we read until end of shard.
 	for {
 		if continuationSequenceNumber == nil {
 			startingPosition = &types.StartingPosition{
@@ -149,7 +147,8 @@ func (c *cmd) aggregateShard(ctx context.Context, shardID string, consumerArn st
 			StartingPosition: startingPosition,
 		})
 		if err != nil {
-			return &aggregatedResult{Error: err}
+			resultsChan <- &aggregatedResult{Error: err}
+			return
 		}
 		subscribed := true
 		for subscribed {
@@ -177,16 +176,18 @@ func (c *cmd) aggregateShard(ctx context.Context, shardID string, consumerArn st
 							for _, a := range aggregators {
 								r[a.Name()] = a.Result()
 							}
-							return &aggregatedResult{
+							resultsChan <- &aggregatedResult{
 								ShardID:     shardID,
 								ChildShards: value.ChildShards,
 								Result:      r,
 							}
+							return
 						}
 					}
 				}
 			case <-ctx.Done():
-				return &aggregatedResult{Error: ctx.Err()}
+				resultsChan <- &aggregatedResult{Error: ctx.Err()}
+				return
 			}
 		}
 	}
