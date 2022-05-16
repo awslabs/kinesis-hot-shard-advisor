@@ -17,16 +17,11 @@
             font-family: 'Source Sans Pro', sans-serif;
             color: rgb(46, 46, 46);
         }
-        li {
-            display: inline;
-        }
-        .nav-item {
-            float: left;
-            margin-right: 10px;
+        th {
+            background-color: beige;
         }
     </style>
 </head>
-
 <body>
     <div>
         <h1>Kinesis Hot Shard Advisor Report</h1>
@@ -37,15 +32,23 @@
             Ingress graphs indicate how much data was written to a shard on per second basis. It's calculated by reading the stream and aggregating the record size for each second in ApproximateArrivalTimestamp.
             Ingress rate above 1MB/sec indicates a potential hot shard issue. Frequent Keys graph show top n keys and the count written to a shard during the reporting period. If you are seeing one or small number of keys being frequently written to a shard exceeding 1MB/sec ingress rate, we advise you to consider tuning the partition key scheme to improve data  distribution across multiple shards.
         </p>
-        <ul id="report-nav">
-        </ul>
+        <table>
+            <thead>
+            <th style="width:250px;">Shard ID</th>
+            <th style="width:100px;">Max (bytes)</th>
+            <th style="width:100px;">Sum (bytes)</th>
+            </thead>
+            <tbody id="report-summary"></tbody>
+        </table>
         <div style="clear:both"/>
         <div id="report-shard-stats"></div>
     </div>
-    <script id="template-nav" type="text/x-jsrender">
-        <li class="nav-item">
-            {{ trustedHTML `<a href="#shard-stats-{{:shardId}}">{{:shardId}}</a>` }}
-            </li>
+    <script id="template-summary" type="text/x-jsrender">
+        <tr>
+            <td>{{ trustedHTML `<a href="#shard-stats-{{:shardId}}">{{:shardId}}` }}</a></td>
+            <td style="text-align:right;">{{ trustedHTML `{{:max}}` }}</td>
+            <td style="text-align:right;">{{ trustedHTML `{{:sum}}` }}</td>
+        </tr>
     </script>
     <script id="template-shard-stats" type="text/x-jsrender">
         <div>
@@ -57,11 +60,17 @@
         </div>
     </script>
     <script>
+        function summarise() {
+            var summary = report.shards.map((s, _) => ({shardId: s.shardId, sum: s.stats['ingress']['sum'], max: s.stats['ingress']['max']}));
+            summary.sort((a, b) => b.max - a.max);
+            return summary
+        }
+
         function renderGraphs() {
             var secondLabels = [];
             var startTime = report.from;
             for(var shard of report.shards) {
-                renderIngressGraph(shard.shardId, shard.stats['ingress'].map((_, i) => new Date((startTime + i) * 1000)), shard.stats['ingress'].map((v, _) => v / 1024/ 1024));
+                renderIngressGraph(shard.shardId, shard.stats['ingress'].timeSeries.map((_, i) => new Date((startTime + i) * 1000)), shard.stats['ingress'].timeSeries.map((v, _) => v / 1024/ 1024));
                 var countStat = shard.stats['count'] || shard.stats['cms'] || [];
                 renderCountGraph(shard.shardId, countStat.slice(0, options.limit).map(i => i.partitionKey), countStat.slice(0, options.limit).map(i => i.count));
             }
@@ -132,7 +141,7 @@
             limit: {{ .Limit }}
         };
         {{ trustedJS `$(document).ready(function() {
-                $('#report-nav').append($('#template-nav').render(report.shards));
+                $('#report-summary').append($('#template-summary').render(summarise()));
                 $('#report-shard-stats').append($('#template-shard-stats').render(report.shards));
                 renderGraphs();
            });` }}
