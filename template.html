@@ -56,7 +56,7 @@
         </tr>
     </script>
     <script id="template-shard-stats" type="text/x-jsrender">
-        <div>
+        <div style="padding-bottom:20px;">
             {{ trustedHTML `<div id="shard-stats-{{:shardId}}"><b>{{:shardId}}</b></div>` }}
             {{ trustedHTML `<canvas id="graph-ingress-{{:shardId}}" width="780px" height="200px"></canvas>` }}
             {{ trustedHTML `<canvas id="graph-count-{{:shardId}}" width="780px" height="200px"></canvas>` }}
@@ -81,6 +81,20 @@
                 s.max = humanizeBytes(s.max);
             }
             return summary
+        }
+
+        function formatLongKeys(key) {
+            var maxLength = 5;
+            if(key.length <= maxLength) {
+                return key
+            }
+            var parts = [];
+            var start = 0;
+            for (var i = 0; i < key.length; i = i+maxLength) {
+                var end = key.length - i;
+                parts.push(key.slice(i, end > maxLength ? i + maxLength : end));
+            }
+            return parts;
         }
 
         function renderGraphs() {
@@ -150,6 +164,14 @@
                 },
                 options: {
                     responsive: false,
+                    scales: {
+                        x: {
+                            ticks: {
+                                maxRotation: 90,
+                                minRotation: 90
+                            }
+                        }
+                    }
                 }
             });
         }
