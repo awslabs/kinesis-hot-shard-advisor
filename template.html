@@ -15,33 +15,38 @@
         body {
             background-color: rgb(253, 253, 253);
             font-family: 'Source Sans Pro', sans-serif;
-            color: rgb(46, 46, 46);
+            color: #5a5c69;
+            padding: 0;
+            margin:0;
         }
         th {
-            background-color: beige;
+            background-color: #E7FBBE;
+        }
+        a, a:visited {
+            color: #5a5c69;
         }
     </style>
 </head>
 <body>
-    <div>
-        <h1>Kinesis Hot Shard Advisor Report</h1>
-    </div>
-    <div>
-        <p>
-            The tool reads available shards of the stream sequentially for the specified duration to calculate the shard level per second consumption and frequently used top partition keys (top 10 by default). 
-            Ingress graphs indicate how much data was written to a shard on per second basis. It's calculated by reading the stream and aggregating the record size for each second in ApproximateArrivalTimestamp.
-            Ingress rate above 1MB/sec indicates a potential hot shard issue. Frequent Keys graph show top n keys and the count written to a shard during the reporting period. If you are seeing one or small number of keys being frequently written to a shard exceeding 1MB/sec ingress rate, we advise you to consider tuning the partition key scheme to improve data  distribution across multiple shards.
-        </p>
-        <table>
-            <thead>
-            <th style="width:350px;">Shard ID</th>
-            <th style="width:225px;">Max Write Throughput/Sec</th>
-            <th style="width:225px;">Sum of Data Ingested</th>
-            </thead>
-            <tbody id="report-summary"></tbody>
-        </table>
-        <div style="clear:both"/>
-        <div id="report-shard-stats"></div>
+    <div style="margin:auto;width:800px;background-color: #FFFDDE">
+        <div style="text-align: center;background-color: #D9D7F1;height: 50px;padding-top: 0px;">
+            <h1 style="margin:0px;">Kinesis Shard Usage</h1>
+        </div>
+        <div>
+            <table>
+                <thead>
+                <th style="width:350px;">Shard ID</th>
+                <th style="width:225px;">Max Write Throughput/Sec</th>
+                <th style="width:225px;">Sum of Data Ingested</th>
+                </thead>
+                <tbody style="padding: 10px;" id="report-summary"></tbody>
+            </table>
+            <hr style="border-color: #5a5c69;border-style: solid;border-width: 1px;"/>
+            <div style="padding:10px;">
+                <div/>
+                <div id="report-shard-stats"></div>
+            </div>
+        </div>
     </div>
     <script id="template-summary" type="text/x-jsrender">
         <tr>
@@ -52,11 +57,9 @@
     </script>
     <script id="template-shard-stats" type="text/x-jsrender">
         <div>
-            {{ trustedHTML `<h2 id="shard-stats-{{:shardId}}">{{:shardId}}</h2>` }}
-            <h3>Ingress</h3>
-            {{ trustedHTML `<canvas id="graph-ingress-{{:shardId}}" width="800px" height="300px"></canvas>` }}
-            <h3>Frequent Keys</h3>
-            {{ trustedHTML `<canvas id="graph-count-{{:shardId}}" width="800px" height="300px"></canvas>` }}
+            {{ trustedHTML `<div id="shard-stats-{{:shardId}}"><b>{{:shardId}}</b></div>` }}
+            {{ trustedHTML `<canvas id="graph-ingress-{{:shardId}}" width="780px" height="200px"></canvas>` }}
+            {{ trustedHTML `<canvas id="graph-count-{{:shardId}}" width="780px" height="200px"></canvas>` }}
         </div>
     </script>
     <script>
@@ -97,10 +100,10 @@
                 data: {
                     labels: labels,
                     datasets: [{
-                        label: 'MB/sec',
+                        label: 'Ingress MB/sec',
                         data: values,
                         fill: false,
-                        borderColor: 'rgb(75, 192, 192)'
+                        borderColor: '#FFCBCB'
                     }]
                 },
                 options: {
@@ -139,7 +142,10 @@
                     labels: labels,
                     datasets: [{
                         label: 'Partition Key Distribution',
-                        data: values
+                        data: values,
+                        backgroundColor: '#FFCBCB',
+                        maxBarThickness: 10,
+                        borderSkipped: true
                     }]
                 },
                 options: {
