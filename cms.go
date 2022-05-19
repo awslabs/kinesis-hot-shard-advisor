@@ -14,6 +14,14 @@ type record struct {
 	Count        int    `json:"count"`
 }
 
+// cms counts the number of times a partition key
+// appears in a shard using Count Min Sketch algorithm.
+// This is the preferred way to count when the shard
+// being analyzed has a high cardinality in partition key.
+// Count Min Sketch uses a probability based counting
+// method that can be performed using a fixed amount of
+// memory. This works well when the number of items
+// being counted (i.e. partition keys) is very large.
 type cms struct {
 	sketch map[string][]int
 	seed   maphash.Seed
