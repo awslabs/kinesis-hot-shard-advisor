@@ -9,11 +9,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/kinesis/types"
 )
 
-type record struct {
-	PartitionKey string `json:"partitionKey"`
-	Count        int    `json:"count"`
-}
-
 // cms counts the number of times a partition key
 // appears in a shard using Count Min Sketch algorithm.
 // This is the preferred way to count when the shard
@@ -25,8 +20,11 @@ type record struct {
 type cms struct {
 	sketch map[string][]int
 	seed   maphash.Seed
-	topK   []record
-	count  int64
+	topK   []struct {
+		PartitionKey string `json:"partitionKey"`
+		Count        int    `json:"count"`
+	}
+	count int64
 }
 
 func (c *cms) Name() string {
@@ -72,10 +70,10 @@ func (c *cms) addToTopK(key string, count int) {
 	if c.topK[len(c.topK)-1].Count > count {
 		return
 	}
-	r := record{
-		PartitionKey: key,
-		Count:        count,
-	}
+	r := struct {
+		PartitionKey string `json:"partitionKey"`
+		Count        int    `json:"count"`
+	}{key, count}
 	c.topK[len(c.topK)-1] = r
 	for i := len(c.topK); i > 1; i-- {
 		if c.topK[i-1].Count <= c.topK[i-2].Count {
@@ -118,6 +116,9 @@ func newCMS(hashes, slots, limit int) (*cms, error) {
 	return &cms{
 		sketch: sketch,
 		seed:   maphash.MakeSeed(),
-		topK:   make([]record, limit),
+		topK: make([]struct {
+			PartitionKey string `json:"partitionKey"`
+			Count        int    `json:"count"`
+		}, limit),
 	}, nil
 }
