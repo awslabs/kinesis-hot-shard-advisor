@@ -16,30 +16,31 @@ type ingress struct {
 	maxIngress int
 }
 
+type ingressStats struct {
+	TimeSeries []int `json:"timeSeries"`
+	Sum        int   `json:"sum"`
+	Max        int   `json:"max"`
+}
+
 func (i *ingress) Name() string {
 	return "ingress"
 }
 
 func (i *ingress) Aggregate(record *types.Record) {
 	an := record.ApproximateArrivalTimestamp.Unix()
-	// At this point we have t which is a value between min and max
-	// seconds in our series
-	// Use the formula an = a + (n – 1)d to workout n
-	// in this case d = 1 because we aggregate data one second intervals
-	n := (an - i.min)
-	i.timeSeries[n] = i.timeSeries[n] + len(record.Data)
+	offset := (an - i.min)
+	if offset < 0 || an > i.max {
+		return
+	}
+	i.timeSeries[offset] = i.timeSeries[offset] + len(record.Data)
 	i.sum = i.sum + len(record.Data)
-	if i.maxIngress < i.timeSeries[n] {
-		i.maxIngress = i.timeSeries[n]
+	if i.maxIngress < i.timeSeries[offset] {
+		i.maxIngress = i.timeSeries[offset]
 	}
 }
 
 func (i *ingress) Result() interface{} {
-	return struct {
-		TimeSeries []int `json:"timeSeries"`
-		Sum        int   `json:"sum"`
-		Max        int   `json:"max"`
-	}{
+	return ingressStats{
 		i.timeSeries,
 		i.sum,
 		i.maxIngress,

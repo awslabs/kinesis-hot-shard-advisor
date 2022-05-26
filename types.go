@@ -16,3 +16,11 @@ type kds interface {
 	RegisterStreamConsumer(ctx context.Context, params *kinesis.RegisterStreamConsumerInput, optFns ...func(*kinesis.Options)) (*kinesis.RegisterStreamConsumerOutput, error)
 	DeregisterStreamConsumer(ctx context.Context, params *kinesis.DeregisterStreamConsumerInput, optFns ...func(*kinesis.Options)) (*kinesis.DeregisterStreamConsumerOutput, error)
 }
+
+// partitionKeyCount is used by counting aggregators
+// to report the number of times a given partition key
+// appears in a shard.
+type partitionKeyCount struct {
+	PartitionKey string `json:"partitionKey"`
+	Count        int    `json:"count"`
+}

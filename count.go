@@ -19,13 +19,9 @@ func (c *count) Aggregate(r *types.Record) {
 }
 
 func (c *count) Result() interface{} {
-	type record struct {
-		PartitionKey string `json:"partitionKey"`
-		Count        int    `json:"count"`
-	}
-	records := make([]record, 0)
+	records := make([]partitionKeyCount, 0)
 	for partitionKey, count := range c.store {
-		records = append(records, record{
+		records = append(records, partitionKeyCount{
 			PartitionKey: partitionKey,
 			Count:        count,
 		})

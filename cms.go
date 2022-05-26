@@ -20,11 +20,8 @@ import (
 type cms struct {
 	sketch map[string][]int
 	seed   maphash.Seed
-	topK   []struct {
-		PartitionKey string `json:"partitionKey"`
-		Count        int    `json:"count"`
-	}
-	count int64
+	topK   []partitionKeyCount
+	count  int64
 }
 
 func (c *cms) Name() string {
@@ -70,10 +67,7 @@ func (c *cms) addToTopK(key string, count int) {
 	if c.topK[len(c.topK)-1].Count > count {
 		return
 	}
-	r := struct {
-		PartitionKey string `json:"partitionKey"`
-		Count        int    `json:"count"`
-	}{key, count}
+	r := partitionKeyCount{key, count}
 	c.topK[len(c.topK)-1] = r
 	for i := len(c.topK); i > 1; i-- {
 		if c.topK[i-1].Count <= c.topK[i-2].Count {
@@ -116,9 +110,6 @@ func newCMS(hashes, slots, limit int) (*cms, error) {
 	return &cms{
 		sketch: sketch,
 		seed:   maphash.MakeSeed(),
-		topK: make([]struct {
-			PartitionKey string `json:"partitionKey"`
-			Count        int    `json:"count"`
-		}, limit),
+		topK:   make([]partitionKeyCount, limit),
 	}, nil
 }

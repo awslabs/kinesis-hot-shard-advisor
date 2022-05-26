@@ -3,6 +3,7 @@ import boto3
 import csv
 import datetime
 import random
+import uuid
 
 kdsname= 'test30'
 region='ap-southeast-2'
@@ -11,7 +12,8 @@ clientkinesis = boto3.client('kinesis',region_name=region)
 
 
 def getDvc(): 
-    randomnum = random.randint(1, 900000)
+    # randomnum = random.randint(1, 900000)
+    randomnum = uuid.uuid4()
     return str(randomnum)
 
 def putkds(record):

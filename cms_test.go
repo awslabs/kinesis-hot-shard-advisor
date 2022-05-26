@@ -38,10 +38,7 @@ func TestCMS(t *testing.T) {
 				cmsAggregator.Aggregate(&types.Record{PartitionKey: &g.key})
 			}
 		}
-		r := cmsAggregator.Result().([]struct {
-			PartitionKey string `json:"partitionKey"`
-			Count        int    `json:"count"`
-		})
+		r := cmsAggregator.Result().([]partitionKeyCount)
 		keys := make([]string, 0)
 		for _, k := range r {
 			keys = append(keys, k.PartitionKey)
