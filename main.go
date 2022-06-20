@@ -1,6 +1,7 @@
-package main
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: MIT-0
 
-//go run . -stream=lab3 -from="2022-02-24 10:07" -to="2022-02-24 10:09"
+package main
 
 import (
 	"context"
