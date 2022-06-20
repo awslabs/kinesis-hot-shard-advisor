@@ -2,7 +2,7 @@
 Easily identify hot shard and hot key on your Kinesis data streams.
 
 ## About
-The Amazon Kinesis hot key advisor is a tool that simplifies identifying whether you have hot key or hot shard issues on your Kinesis data streams. The tool can also identify whether you are hitting the shard level throughput limit per-second basis.
+The Amazon Kinesis hot key advisor is a CLI tool that simplifies identifying whether you have hot key or hot shard issues on your Kinesis data streams. The tool can also identify whether you are hitting the shard level throughput limit per-second basis.
 
 ## Prerequisite
 1. Install [AWSCli](https://aws.amazon.com/cli/)
@@ -21,23 +21,13 @@ Default output format [None]:
 ** Kinesis hotkey advisor will use the AWSCli configuration to access Kinesis data streams on a particular AWS region.
 
 ## Gettng started
-**Option 1: If you want to use the binary** 
-1. download the compatible binary from [releases](https://github.com/buddyspike/khs/releases)
+1. download the compatible binary from [releases](https://github.com/awslabs/kinesis-hot-shard-advisor/releases)
 2. Use command line and navigate to the directory where you downloaded the binary earlier
 3. run the below command
 ```
-[binaryFileName] -stream=[YOUR STREAM NAME]] -from="yyyy-mm-dd hh:mm" -to="yyyy-mm-dd hh:mm"
+khs -stream=[YOUR STREAM NAME]] -from="yyyy-mm-dd hh:mm" -to="yyyy-mm-dd hh:mm"
 ```
 Example:  khs -stream=lab3 -from="2022-02-24 10:07" -to="2022-02-24 10:09"* 
-
-**Option 2: If you want to use the source code**
-1. Download the GitHub project on your local machine
-2. Use command line and navigate to the project directory that you have downloaded earlier
-3. run the below command
-```
-go run . -stream=[YOUR STREAM NAME]] -from="yyyy-mm-dd hh:mm" -to="yyyy-mm-dd hh:mm"
-```
-Example:  *go run . -stream=lab3 -from="2022-02-24 10:07" -to="2022-02-24 10:09"* 
 
 ## Output sample
 ```
@@ -53,6 +43,4 @@ Once you see the output as above, open the **out.html** file from your current d
 ![Sample Report](images/samplereport.png)
 
 ## Contributing to the project
-If you are interested in contributing to this project, here are the steps you can follow:
-1. Install [Go](https://go.dev/doc/install) on your local computer
-2. Clone this project, start developing and submit a pull request 
+If you are interested in contributing to this project, [here](CONTRIBUTING.md) are the steps you can follow.
