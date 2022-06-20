@@ -42,14 +42,7 @@ type aggregatedResult struct {
 
 type AggregatorBuilder func() []Aggregator
 
-// cmd Implements the main workflow for hot shard analysis.
-// It first creates an EFO consumer. Then it enumerate shards
-// and for each top level shard to create an aggregator pipeline
-// to analyse usage stats.
-// An aggregation pipeline will return shard stats an any child
-// shards that should be processed.
-// cmd main workflow will continue to process those child shards
-// until all aggregation pipelines return an empty slice of children.
+// cmd represents the cli command for analysing kinesis data streams.
 type cmd struct {
 	streamName        string
 	kds               kds
@@ -59,6 +52,12 @@ type cmd struct {
 	aggregatorBuilder AggregatorBuilder
 }
 
+// Start starts the execution of stream analysis workflow outlined below.
+// - Create a new EFO consumer
+// - Read all shards in the stream
+// 	 Shards are read concurrently without loosing the order of messages
+// - Generate the output
+// - Delete EFO consumer
 func (c *cmd) Start(ctx context.Context) error {
 	color.Green("Stream: %s\nFrom: %v\nTo: %v", c.streamName, c.period.start, c.period.end)
 	fmt.Print(color.YellowString("Creating an EFO consumer..."))
