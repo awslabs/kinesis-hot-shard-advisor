@@ -5,20 +5,18 @@ Easily identify hot shard and hot key on your Kinesis data streams.
 The Amazon Kinesis Hot Shard Advisor is a CLI tool that simplifies identifying whether you have hot key or hot shard issues on your Kinesis data streams. The tool can also identify whether you are hitting the shard level throughput limit per-second basis.
 
 ## Prerequisite
-1. Install [AWSCli](https://aws.amazon.com/cli/)
-2. Configure [AWSCli](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html) specifying an AWS region. Use access key and secret key associated with an IAM user which has at least "**AmazonKinesisReadOnlyAccess**" policy attached
-
-Example:
-```
-C:\Users\UserName>aws configure
-AWS Access Key ID [*****************]: ABCDXYZ
-AWS Secret Access Key [****************]: ABCDXYZ
-Default region name [None]: ap-southeast-2
-Default output format [None]:
+In order to perform analysis on your Kinesis Data Stream, khs must be executing under the context of an IAM enitity with access to following actions.
 
 ```
+kinesis:ListShards
+kinesis:DescribeStreamSummary
+kinesis:RegisterStreamConsumer
+kinesis:DeregisterStreamConsumer
+kinesis:SubscribeToShard
+kinesis:DescribeStreamConsumer
+```
 
-** Kinesis hotkey advisor will use the AWSCli configuration to access Kinesis data streams on a particular AWS region.
+** khs will use the AWSCli configuration to access Kinesis data streams on a particular AWS region. If the default region is not configured in the current session, you must also specify the region of Kinesis Data Stream via `AWS_DEFAULT_REGION` environment variable.
 
 ## Gettng started
 1. download the compatible binary from [releases](https://github.com/awslabs/kinesis-hot-shard-advisor/releases)
