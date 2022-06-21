@@ -290,6 +290,8 @@ func (c *cmd) ensureEFOConsumer(ctx context.Context) (*string, *string, error) {
 					if err != nil {
 						return nil, nil, err
 					}
+				} else {
+					return nil, nil, err
 				}
 			} else {
 				return nil, nil, err
