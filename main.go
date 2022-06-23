@@ -17,11 +17,12 @@ import (
 var opts = &options{}
 
 func init() {
-	flag.StringVar(&opts.stream, "stream", "", "stream name")
-	flag.IntVar(&opts.limit, "limit", 10, "max number of keys to display")
-	flag.BoolVar(&opts.cms, "cms", false, "use count-min-sketch (experimental)")
-	flag.StringVar(&opts.start, "from", "", "start time for analysis")
-	flag.StringVar(&opts.end, "to", "", "end time for analysis")
+	flag.StringVar(&opts.stream, "stream", "", "Stream name")
+	flag.IntVar(&opts.limit, "limit", 10, "Max number of keys to display (Optional). Default is 10.")
+	flag.BoolVar(&opts.cms, "cms", false, "Use count-min-sketch (Optional) algorithm for counting key distribution (Optional). Default is false. Use this method to avoid OOM condition when analysing busy streams with high cardinality.")
+	flag.StringVar(&opts.start, "from", "", "Start time in yyyy-mm-dd hh:mm format (Optional). Default value is current time - 5 minutes.")
+	flag.StringVar(&opts.end, "to", "", "End time in yyyy-mm-dd hh:mm format (Optional). Default value is current time.")
+	flag.StringVar(&opts.out, "out", "out.html", "Path to output file (Optional). Default is out.html.")
 }
 
 func aggregatorBuilder(p *period) func() []Aggregator {
@@ -70,7 +71,7 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	err = newCMD(opts.stream, kinesis.NewFromConfig(cfg), aggregatorBuilder(p), opts.limit, p).Start(ctx)
+	err = newCMD(opts.stream, kinesis.NewFromConfig(cfg), aggregatorBuilder(p), opts.limit, p, opts.out).Start(ctx)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)

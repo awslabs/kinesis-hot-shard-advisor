@@ -14,6 +14,7 @@ type options struct {
 	cms    bool
 	start  string
 	end    string
+	out    string
 }
 
 type period struct {

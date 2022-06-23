@@ -48,6 +48,7 @@ type cmd struct {
 	kds               kds
 	shardTree         map[string][]string
 	limit             int
+	out               string
 	period            *period
 	aggregatorBuilder AggregatorBuilder
 }
@@ -249,7 +250,7 @@ func (i *cmd) generateReport(stats map[string]map[string]interface{}) {
 	if err != nil {
 		panic(err)
 	}
-	fname := "out.html"
+	fname := i.out
 	file, err := os.OpenFile(fname, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		panic(err)
@@ -321,7 +322,7 @@ func (c *cmd) deregisterConsumer(streamArn, consumerArn *string) {
 	}
 }
 
-func newCMD(streamName string, kds kds, aggregatorBuilder AggregatorBuilder, limit int, p *period) *cmd {
+func newCMD(streamName string, kds kds, aggregatorBuilder AggregatorBuilder, limit int, p *period, out string) *cmd {
 	return &cmd{
 		kds:               kds,
 		streamName:        streamName,
@@ -329,5 +330,6 @@ func newCMD(streamName string, kds kds, aggregatorBuilder AggregatorBuilder, lim
 		limit:             limit,
 		period:            p,
 		shardTree:         make(map[string][]string),
+		out:               out,
 	}
 }
