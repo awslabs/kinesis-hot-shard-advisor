@@ -18,7 +18,7 @@ kinesis:DescribeStreamConsumer
 
 ** khs will use the AWSCli configuration to access Kinesis data streams on a particular AWS region. If the default region is not configured in the current session, you must also specify the region of Kinesis Data Stream via `AWS_DEFAULT_REGION` environment variable.
 
-## Gettng started
+## Gettng Started
 1. download the compatible binary from [releases](https://github.com/awslabs/kinesis-hot-shard-advisor/releases)
 2. Use command line and navigate to the directory where you downloaded the binary earlier
 3. run the below command
@@ -34,7 +34,7 @@ output is written to out.html
 ```
 
 
-## View the report
+## View the Report
 Once you see the output as above, open the file pointed by `out` option (by default this is set to **out.html** file from your current directory) with your default browser to view the report.
 
 ## Usage
@@ -53,7 +53,7 @@ Once you see the output as above, open the file pointed by `out` option (by defa
     	Number of keys to output in key distribution graph (Optional). Default is 10. (default 10)
 ```
 
-## Sample report
+## Sample Report
 ![Sample Report](images/samplereport.png)
 
 ## Contributing to the project
