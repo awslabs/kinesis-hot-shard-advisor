@@ -18,7 +18,7 @@ var opts = &options{}
 
 func init() {
 	flag.StringVar(&opts.stream, "stream", "", "Stream name")
-	flag.IntVar(&opts.limit, "limit", 10, "Max number of keys to display (Optional). Default is 10.")
+	flag.IntVar(&opts.limit, "limit", 10, "Number of keys to output in key distribution graph (Optional). Default is 10.")
 	flag.BoolVar(&opts.cms, "cms", false, "Use count-min-sketch (Optional) algorithm for counting key distribution (Optional). Default is false. Use this method to avoid OOM condition when analysing busy streams with high cardinality.")
 	flag.StringVar(&opts.start, "from", "", "Start time in yyyy-mm-dd hh:mm format (Optional). Default value is current time - 5 minutes.")
 	flag.StringVar(&opts.end, "to", "", "End time in yyyy-mm-dd hh:mm format (Optional). Default value is current time.")
