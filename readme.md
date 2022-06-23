@@ -24,9 +24,8 @@ kinesis:DescribeStreamConsumer
 3. run the below command
 ```
 khs -stream=[YOUR STREAM NAME]] -from="yyyy-mm-dd hh:mm" -to="yyyy-mm-dd hh:mm"
-```
 Example:  khs -stream=lab3 -from="2022-02-24 10:07" -to="2022-02-24 10:09"* 
-
+```
 ## Output sample
 ```
 Listing shards for stream lab3...OK!
@@ -34,8 +33,25 @@ Listing shards for stream lab3...OK!
 output is written to out.html
 ```
 
+
 ## View the report
-Once you see the output as above, open the **out.html** file from your current directory with your default browser to view the report.
+Once you see the output as above, open the file pointed by `out` option (by default this is set to **out.html** file from your current directory) with your default browser to view the report.
+
+## Usage
+```
+  -stream string
+    	Stream name
+  -from string
+    	Start time in yyyy-mm-dd hh:mm format (Optional). Default value is current time - 5 minutes.
+  -to string
+    	End time in yyyy-mm-dd hh:mm format (Optional). Default value is current time.
+  -out string
+    	Path to output file (Optional). Default is out.html. (default "out.html")
+  -cms
+    	Use count-min-sketch (Optional) algorithm for counting key distribution (Optional). Default is false. Use this method to avoid OOM condition when analysing busy streams with high cardinality.
+  -limit int
+    	Number of keys to output in key distribution graph (Optional). Default is 10. (default 10)
+```
 
 ## Sample report
 ![Sample Report](images/samplereport.png)
