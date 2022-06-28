@@ -16,7 +16,7 @@ kinesis:SubscribeToShard
 kinesis:DescribeStreamConsumer
 ```
 
-** khs will use the AWSCli configuration to access Kinesis data streams on a particular AWS region. If the default region is not configured in the current session, you must also specify the region of Kinesis Data Stream via `AWS_DEFAULT_REGION` environment variable.
+** khs will use the AWSCli configuration to access Kinesis data streams on a particular AWS region. If the default region is not configured in the current session, you must also specify the region of Kinesis Data Stream via [AWS_DEFAULT_REGION](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html#cli-configure-quickstart-region) environment variable.
 
 ## Gettng Started
 1. download the compatible binary from [releases](https://github.com/awslabs/kinesis-hot-shard-advisor/releases)
