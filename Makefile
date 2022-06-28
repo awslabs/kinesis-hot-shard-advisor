@@ -1,10 +1,12 @@
 .PHONY: build clean install test
 
 TARGET=
+EXTENSION=
 SUFFIX=$(GOOS)_$(GOARCH)
 ifneq ("${SUFFIX}", "_")
 TARGET=_$(SUFFIX)
 endif
+EXTENSION=$(FILEEXT)
 
 AWS_REGION=
 ifeq ("${AWS_REGION}", "")
