@@ -19,12 +19,13 @@ kinesis:DescribeStreamConsumer
 ** khs will use the AWSCli configuration to access Kinesis data streams on a particular AWS region. If the default region is not configured in the current session, you must also specify the region of the Kinesis Data Stream via [AWS_DEFAULT_REGION](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-quickstart.html#cli-configure-quickstart-region) environment variable.
 
 ## Getting Started
-1. download the compatible binary from [releases](https://github.com/awslabs/kinesis-hot-shard-advisor/releases)
+1. download the compatible binary from [releases](https://github.com/awslabs/kinesis-hot-shard-advisor/releases) and rename the file name to **khs**
 2. Use the command line and navigate to the directory where you downloaded the binary earlier
 3. run the below command
 ```
 khs -stream=[YOUR STREAM NAME]] -from="yyyy-mm-dd hh:mm" -to="yyyy-mm-dd hh:mm"
 Example:  khs -stream=lab3 -from="2022-02-24 10:07" -to="2022-02-24 10:09" 
+Note: The date range should be within the retention period of your Kinesis data streams.
 ```
 ## Output sample
 ```
