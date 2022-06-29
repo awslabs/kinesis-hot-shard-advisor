@@ -4,6 +4,13 @@ Easily identify hot shard and hot key on your Kinesis data streams.
 ## About
 The Amazon Kinesis Hot Shard Advisor is a CLI tool that simplifies identifying whether you have hot key or hot shard issues on your Kinesis data streams. The tool can also identify whether you are hitting the shard level throughput limit per-second basis.
 
+## Why KHS?
+An Amazon Kinesis Data Stream consists of one or more shards. Records with the same partition key is always written to the same shard. Each shard has a [maximum throughput](https://aws.amazon.com/kinesis/data-streams/faqs/#:~:text=A%20shard%20has%20a%20sequence,2%20MB%2Fsecond%20for%20reads.) it can support. When a producer application attempts to put records at a higher rate than the maximum throughput available, they receive `WriteThroughputExceeded` error. This is commonly known as the **hot shard problem**.   
+
+When you experience a hot shard problem, you will notice an increase of `WriteProvisionedThroughputExceeded` metric in CloudWatch. However, for bursty workloads you may not notice the corresponding data in `IncomingRecords` and `IncomingBytes` metrics due to per minute aggregation. You can get the visibility to bursty writes with khs because it reads the records from your stream and aggregate the record size per second based on `ApproximateArrivalTimestamp`.
+
+Typically when there's a hot shard problem, you can increase the number of shards in the stream to increase available throughput (or change the capacity mode of your stream to on-demand). Increasing the number of shards does not solve the problem if it's caused by the producer using a key (or set of keys) more frequently than others. This is known as the **hot key problem** and requires an adjutment to parition key scheme to solve it. khs helps you identify hot key issues by showing the frequency of keys that are written to your stream within a given time period.
+
 ## Prerequisite
 In order to perform analysis on your Kinesis Data Stream, khs must be executed under the context of an IAM entity with access to the following actions.
 
