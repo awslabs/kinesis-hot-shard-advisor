@@ -35,9 +35,11 @@
         <div>
             <table>
                 <thead>
-                <th style="width:350px;">Shard ID</th>
-                <th style="width:225px;">Max Write Throughput/Sec</th>
-                <th style="width:225px;">Sum of Data Ingested</th>
+                <th style="width:300px;">Shard ID</th>
+                <th style="width:125px;">Max Bytes/Sec</th>
+                <th style="width:125px;">Sum Bytes</th>
+                <th style="width:125px;">Max Count/Sec</th>
+                <th style="width:125px;">Sum Count</th>
                 </thead>
                 <tbody style="padding: 10px;" id="report-summary"></tbody>
             </table>
@@ -53,12 +55,15 @@
             <td>{{ trustedHTML `<a href="#shard-stats-{{:shardId}}">{{:shardId}}` }}</a></td>
             <td style="text-align:right;">{{ trustedHTML `{{:max}}` }}</td>
             <td style="text-align:right;">{{ trustedHTML `{{:sum}}` }}</td>
+            <td style="text-align:right;">{{ trustedHTML `{{:maxCount}}` }}</td>
+            <td style="text-align:right;">{{ trustedHTML `{{:sumCount}}` }}</td>
         </tr>
     </script>
     <script id="template-shard-stats" type="text/x-jsrender">
         <div style="padding-bottom:20px;">
             {{ trustedHTML `<div id="shard-stats-{{:shardId}}"><b>{{:shardId}}</b></div>` }}
             {{ trustedHTML `<canvas id="graph-ingress-{{:shardId}}" width="780px" height="200px"></canvas>` }}
+            {{ trustedHTML `<canvas id="graph-ingress-count-{{:shardId}}" width="780px" height="200px"></canvas>` }}
             {{ trustedHTML `<canvas id="graph-count-{{:shardId}}" width="780px" height="200px"></canvas>` }}
         </div>
     </script>
@@ -74,7 +79,7 @@
         }
 
         function summarise() {
-            var summary = report.shards.map((s, _) => ({shardId: s.shardId, sum: s.stats['ingress']['sum'], max: s.stats['ingress']['max']}));
+            var summary = report.shards.map((s, _) => ({shardId: s.shardId, sum: s.stats['ingress']['sum'], max: s.stats['ingress']['max'], sumCount: s.stats['ingress-count']['sum'], maxCount: s.stats['ingress-count']['max']}));
             summary.sort((a, b) => b.max - a.max || b.sum - a.sum);
             for(var s of summary) {
                 s.sum = humanizeBytes(s.sum);
@@ -102,6 +107,7 @@
             var startTime = report.from;
             for(var shard of report.shards) {
                 renderIngressGraph(shard.shardId, shard.stats['ingress'].timeSeries.map((_, i) => new Date((startTime + i) * 1000)), shard.stats['ingress'].timeSeries.map((v, _) => v / 1024/ 1024));
+                renderIngressCountGraph(shard.shardId, shard.stats['ingress-count'].timeSeries.map((_, i) => new Date((startTime + i) * 1000)), shard.stats['ingress-count'].timeSeries.map((v, _) => v));
                 var countStat = shard.stats['count'] || shard.stats['cms'] || [];
                 renderCountGraph(shard.shardId, countStat.slice(0, options.limit).map(i => i.partitionKey), countStat.slice(0, options.limit).map(i => i.count));
             }
@@ -115,6 +121,47 @@
                     labels: labels,
                     datasets: [{
                         label: 'Ingress MB/sec',
+                        data: values,
+                        fill: false,
+                        borderColor: '#FFCBCB'
+                    }]
+                },
+                options: {
+                    fill: false,
+                    responsive: false,
+                    elements: {
+                        point: {
+                            radius: 0
+                        },
+                        line: {
+                            tension: 0.2,
+                            borderWidth: 1,
+
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'second'
+                            },
+                            grid: {
+                                display: false
+                            }
+                        },
+                    }
+                }
+            });
+        }
+
+        function renderIngressCountGraph(shardId, labels, values) {
+            var ctx = document.getElementById(`graph-ingress-count-${shardId}`);
+            latencyChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Ingress count/sec',
                         data: values,
                         fill: false,
                         borderColor: '#FFCBCB'
