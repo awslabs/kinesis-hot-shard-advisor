@@ -9,9 +9,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/kinesis/types"
 )
 
-// ingress is an Aggregator to count number of bytes
+// ingressBytes is an Aggregator to count number of bytes
 // received per second (based on ApproximateArrivalTimestamp).
-type ingress struct {
+type ingressBytes struct {
 	min        int64 // Start time of aggregation in Unix time format
 	max        int64 // End time of aggregation in Unix time format
 	timeSeries []int // Store usage value for each shard as an array. Array index is the ordinal value of second within the specified range.
@@ -19,17 +19,17 @@ type ingress struct {
 	maxIngress int
 }
 
-type ingressStats struct {
+type ingressBytesStats struct {
 	TimeSeries []int `json:"timeSeries"`
 	Sum        int   `json:"sum"`
 	Max        int   `json:"max"`
 }
 
-func (i *ingress) Name() string {
-	return "ingress"
+func (i *ingressBytes) Name() string {
+	return "ingress-bytes"
 }
 
-func (i *ingress) Aggregate(record *types.Record) {
+func (i *ingressBytes) Aggregate(record *types.Record) {
 	an := record.ApproximateArrivalTimestamp.Unix()
 	offset := (an - i.min)
 	if offset < 0 || an > i.max {
@@ -42,18 +42,18 @@ func (i *ingress) Aggregate(record *types.Record) {
 	}
 }
 
-func (i *ingress) Result() interface{} {
-	return ingressStats{
+func (i *ingressBytes) Result() interface{} {
+	return ingressBytesStats{
 		i.timeSeries,
 		i.sum,
 		i.maxIngress,
 	}
 }
 
-func newIngress(start, end time.Time) *ingress {
+func newIngressBytes(start, end time.Time) *ingressBytes {
 	min := start.Unix()
 	max := end.Unix()
-	return &ingress{
+	return &ingressBytes{
 		min:        min,
 		max:        max,
 		timeSeries: make([]int, int(max-min)+1),
