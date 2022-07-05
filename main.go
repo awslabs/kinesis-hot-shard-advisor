@@ -37,7 +37,7 @@ func aggregatorBuilder(p *period) func() []Aggregator {
 		} else {
 			aggregators = append(aggregators, newCount())
 		}
-		aggregators = append(aggregators, newIngress(p.start, p.end), newIngressCount(p.start, p.end))
+		aggregators = append(aggregators, newIngressBytes(p.start, p.end), newIngressCount(p.start, p.end))
 		return aggregators
 	}
 }

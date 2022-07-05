@@ -62,7 +62,7 @@
     <script id="template-shard-stats" type="text/x-jsrender">
         <div style="padding-bottom:20px;">
             {{ trustedHTML `<div id="shard-stats-{{:shardId}}"><b>{{:shardId}}</b></div>` }}
-            {{ trustedHTML `<canvas id="graph-ingress-{{:shardId}}" width="780px" height="200px"></canvas>` }}
+            {{ trustedHTML `<canvas id="graph-ingress-bytes-{{:shardId}}" width="780px" height="200px"></canvas>` }}
             {{ trustedHTML `<canvas id="graph-ingress-count-{{:shardId}}" width="780px" height="200px"></canvas>` }}
             {{ trustedHTML `<canvas id="graph-count-{{:shardId}}" width="780px" height="200px"></canvas>` }}
         </div>
@@ -79,7 +79,7 @@
         }
 
         function summarise() {
-            var summary = report.shards.map((s, _) => ({shardId: s.shardId, sum: s.stats['ingress']['sum'], max: s.stats['ingress']['max'], sumCount: s.stats['ingress-count']['sum'], maxCount: s.stats['ingress-count']['max']}));
+            var summary = report.shards.map((s, _) => ({shardId: s.shardId, sum: s.stats['ingress-bytes']['sum'], max: s.stats['ingress-bytes']['max'], sumCount: s.stats['ingress-count']['sum'], maxCount: s.stats['ingress-count']['max']}));
             summary.sort((a, b) => b.max - a.max || b.sum - a.sum);
             for(var s of summary) {
                 s.sum = humanizeBytes(s.sum);
@@ -106,15 +106,15 @@
             var secondLabels = [];
             var startTime = report.from;
             for(var shard of report.shards) {
-                renderIngressGraph(shard.shardId, shard.stats['ingress'].timeSeries.map((_, i) => new Date((startTime + i) * 1000)), shard.stats['ingress'].timeSeries.map((v, _) => v / 1024/ 1024));
+                renderIngressBytesGraph(shard.shardId, shard.stats['ingress-bytes'].timeSeries.map((_, i) => new Date((startTime + i) * 1000)), shard.stats['ingress-bytes'].timeSeries.map((v, _) => v / 1024/ 1024));
                 renderIngressCountGraph(shard.shardId, shard.stats['ingress-count'].timeSeries.map((_, i) => new Date((startTime + i) * 1000)), shard.stats['ingress-count'].timeSeries.map((v, _) => v));
                 var countStat = shard.stats['count'] || shard.stats['cms'] || [];
                 renderCountGraph(shard.shardId, countStat.slice(0, options.limit).map(i => i.partitionKey), countStat.slice(0, options.limit).map(i => i.count));
             }
         }
 
-        function renderIngressGraph(shardId, labels, values) {
-            var ctx = document.getElementById(`graph-ingress-${shardId}`);
+        function renderIngressBytesGraph(shardId, labels, values) {
+            var ctx = document.getElementById(`graph-ingress-bytes-${shardId}`);
             latencyChart = new Chart(ctx, {
                 type: 'line',
                 data: {
