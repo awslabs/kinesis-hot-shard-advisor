@@ -54,11 +54,11 @@ type cmd struct {
 }
 
 // Start starts the execution of stream analysis workflow outlined below.
-// - Create a new EFO consumer
-// - Read all shards in the stream
-// 	 Shards are read concurrently without loosing the order of messages
-// - Generate the output
-// - Delete EFO consumer
+//   - Create a new EFO consumer
+//   - Read all shards in the stream
+//     Shards are read concurrently without loosing the order of messages
+//   - Generate the output
+//   - Delete EFO consumer
 func (c *cmd) Start(ctx context.Context) error {
 	color.Green("Stream: %s\nFrom: %v\nTo: %v", c.streamName, c.period.start, c.period.end)
 	fmt.Print(color.YellowString("Creating an EFO consumer..."))
@@ -198,20 +198,25 @@ func (c *cmd) aggregateShard(ctx context.Context, resultsChan chan<- *aggregated
 
 func (i *cmd) listShards(ctx context.Context, streamName string) ([]types.Shard, error) {
 	var (
-		ntoken *string
+		lso *kinesis.ListShardsOutput
+		err error
 	)
 	r := make([]types.Shard, 0)
 	for {
-		lso, err := i.kds.ListShards(ctx, &kinesis.ListShardsInput{
-			StreamName: &streamName,
-			NextToken:  ntoken,
-		})
+		if lso == nil {
+			lso, err = i.kds.ListShards(ctx, &kinesis.ListShardsInput{
+				StreamName: &streamName,
+			})
+		} else {
+			lso, err = i.kds.ListShards(ctx, &kinesis.ListShardsInput{
+				NextToken: lso.NextToken,
+			})
+		}
 		if err != nil {
 			return nil, err
 		}
 		r = append(r, lso.Shards...)
-		ntoken = lso.NextToken
-		if ntoken == nil {
+		if lso.NextToken == nil {
 			break
 		}
 	}
