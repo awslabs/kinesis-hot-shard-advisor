@@ -10,6 +10,9 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/aws/ratelimit"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/kinesis"
 )
@@ -66,7 +69,11 @@ func main() {
 		<-signals
 		cancel()
 	}()
-	cfg, err := config.LoadDefaultConfig(ctx)
+	cfg, err := config.LoadDefaultConfig(ctx, config.WithRetryer(func() aws.Retryer {
+		return retry.NewStandard(func(so *retry.StandardOptions) {
+			so.RateLimiter = ratelimit.NewTokenRateLimit(1000000)
+		})
+	}))
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
