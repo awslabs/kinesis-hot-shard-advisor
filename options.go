@@ -79,5 +79,9 @@ func (o *options) shardIDs() []string {
 	if o.sids == "" {
 		return make([]string, 0)
 	}
-	return strings.Split(o.sids, ",")
+	r := strings.Split(o.sids, ",")
+	for i, s := range r {
+		r[i] = strings.TrimSpace(s)
+	}
+	return r
 }
