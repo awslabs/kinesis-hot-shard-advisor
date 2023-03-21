@@ -26,7 +26,7 @@ func init() {
 	flag.StringVar(&opts.start, "from", "", "Start time in yyyy-mm-dd hh:mm format (Optional). Default value is current time - 5 minutes.")
 	flag.StringVar(&opts.end, "to", "", "End time in yyyy-mm-dd hh:mm format (Optional). Default value is current time.")
 	flag.StringVar(&opts.out, "out", "out.html", "Path to output file (Optional). Default is out.html.")
-	flag.StringVar(&opts.sids, "shard-ids", "", "Specific shard ids to analyse.")
+	flag.StringVar(&opts.sids, "shard-ids", "", "Comma separated list of shard ids to analyse.")
 }
 
 func aggregatorBuilder(p *period) func() []Aggregator {

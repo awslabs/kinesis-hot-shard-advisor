@@ -60,7 +60,7 @@ Once you see the output as above, open the file pointed by `out` option (by defa
   -limit int
     	Number of keys to output in key distribution graph (Optional). Default is 10. (default 10)
    -shard-ids string
-    	Specific shard ids to analyse.
+    	Comma separated list of shard ids to analyse.
 ```
 
 ## Sample Report
