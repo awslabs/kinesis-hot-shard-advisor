@@ -1,4 +1,4 @@
-module khs
+module github.com/awslabs/kinesis-hot-shard-advisor
 
 go 1.19
 
