@@ -59,6 +59,8 @@ Once you see the output as above, open the file pointed by `out` option (by defa
     	Use count-min-sketch (Optional) algorithm for counting key distribution (Optional). Default is false. Use this method to avoid OOM condition when analysing busy streams with high cardinality.
   -limit int
     	Number of keys to output in key distribution graph (Optional). Default is 10. (default 10)
+   -shard-ids string
+    	Specific shard ids to analyse.
 ```
 
 ## Sample Report

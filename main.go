@@ -26,6 +26,7 @@ func init() {
 	flag.StringVar(&opts.start, "from", "", "Start time in yyyy-mm-dd hh:mm format (Optional). Default value is current time - 5 minutes.")
 	flag.StringVar(&opts.end, "to", "", "End time in yyyy-mm-dd hh:mm format (Optional). Default value is current time.")
 	flag.StringVar(&opts.out, "out", "out.html", "Path to output file (Optional). Default is out.html.")
+	flag.StringVar(&opts.sids, "shard-ids", "", "Specific shard ids to analyse.")
 }
 
 func aggregatorBuilder(p *period) func() []Aggregator {
@@ -78,7 +79,7 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	err = newCMD(opts.stream, kinesis.NewFromConfig(cfg), aggregatorBuilder(p), opts.limit, p, opts.out).Start(ctx)
+	err = newCMD(opts.stream, kinesis.NewFromConfig(cfg), newHTMLReporter(opts.out), aggregatorBuilder(p), opts.limit, p, opts.shardIDs()).Start(ctx)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)

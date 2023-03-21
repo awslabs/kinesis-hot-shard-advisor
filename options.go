@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -15,6 +16,7 @@ type options struct {
 	start  string
 	end    string
 	out    string
+	sids   string
 }
 
 type period struct {
@@ -71,4 +73,11 @@ func (o *options) parseTime(s string) (time.Time, error) {
 		return t, nil
 	}
 	return time.Now().Add(d * -1), nil
+}
+
+func (o *options) shardIDs() []string {
+	if o.sids == "" {
+		return make([]string, 0)
+	}
+	return strings.Split(o.sids, ",")
 }
