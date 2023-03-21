@@ -5,11 +5,8 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"html/template"
-	"os"
 	"time"
 
 	_ "embed"
@@ -46,11 +43,12 @@ type AggregatorBuilder func() []Aggregator
 type cmd struct {
 	streamName        string
 	kds               kds
+	reporter          reporter
 	shardTree         map[string][]string
 	limit             int
-	out               string
 	period            *period
 	aggregatorBuilder AggregatorBuilder
+	shardIDs          []string
 }
 
 // Start starts the execution of stream analysis workflow outlined below.
@@ -60,6 +58,7 @@ type cmd struct {
 //   - Generate the output
 //   - Delete EFO consumer
 func (c *cmd) Start(ctx context.Context) error {
+	var bar *pb.ProgressBar
 	color.Green("Stream: %s\nFrom: %v\nTo: %v", c.streamName, c.period.start, c.period.end)
 	fmt.Print(color.YellowString("Creating an EFO consumer..."))
 	streamArn, consumerArn, err := c.ensureEFOConsumer(ctx)
@@ -68,46 +67,57 @@ func (c *cmd) Start(ctx context.Context) error {
 	}
 	defer c.deregisterConsumer(streamArn, consumerArn)
 	color.Yellow(": %s OK!\n", *consumerArn)
-	fmt.Print(color.YellowString("Listing shards for stream %s...", c.streamName))
-	shards, err := c.listShards(ctx, c.streamName)
-	if err != nil {
-		return err
-	}
-	color.Yellow(" OK!")
-	// Store all shard ids in a map so that we can
-	// quickly check if a given shard id exists in the
-	// list or not.
-	shardsSet := make(map[string]bool)
-	for _, shard := range shards {
-		shardsSet[*shard.ShardId] = true
-	}
-	results := make(map[string]map[string]interface{})
 	resultsChan := make(chan *aggregatedResult)
-	bar := pb.StartNew(len(shards))
 	pendingEnumerations := 0
-	for _, shard := range shards {
-		// Start aggregating from shards that don't have an
-		// active parent.  If there's an active parent, aggregateShard
-		// would return child shards after the parent is read. It's important
-		// process shards in this manner to respect the delivery order of records.
-		hasActiveParent := false
-		if shard.ParentShardId != nil {
-			_, hasActiveParent = shardsSet[*shard.ParentShardId]
-		}
-		if !hasActiveParent {
+	if len(c.shardIDs) > 0 {
+		bar = pb.StartNew(len(c.shardIDs))
+		for _, shard := range c.shardIDs {
 			pendingEnumerations++
-			go c.aggregateShard(ctx, resultsChan, *shard.ShardId, *consumerArn)
+			go c.aggregateShard(ctx, resultsChan, shard, *consumerArn)
+		}
+	} else {
+		fmt.Print(color.YellowString("Listing shards for stream %s...", c.streamName))
+		shards, err := c.listShards(ctx, c.streamName)
+		if err != nil {
+			return err
+		}
+		color.Yellow(" OK!")
+		bar = pb.StartNew(len(shards))
+		// Store all shard ids in a map so that we can
+		// quickly check if a given shard id exists in the
+		// list or not.
+		shardsSet := make(map[string]bool)
+		for _, shard := range shards {
+			shardsSet[*shard.ShardId] = true
+		}
+		for _, shard := range shards {
+			// Start aggregating from shards that don't have an
+			// active parent.  If there's an active parent, aggregateShard
+			// would return child shards after the parent is read. It's important
+			// process shards in this manner to respect the delivery order of records.
+			hasActiveParent := false
+			if shard.ParentShardId != nil {
+				_, hasActiveParent = shardsSet[*shard.ParentShardId]
+			}
+			if !hasActiveParent {
+				pendingEnumerations++
+				go c.aggregateShard(ctx, resultsChan, *shard.ShardId, *consumerArn)
+			}
 		}
 	}
+
+	results := make(map[string]map[string]interface{})
 	for pendingEnumerations > 0 {
 		r := <-resultsChan
 		pendingEnumerations--
 		bar.Increment()
 		if r.Error == nil {
 			results[r.ShardID] = r.Result
-			for _, cs := range r.ChildShards {
-				pendingEnumerations++
-				go c.aggregateShard(ctx, resultsChan, *cs.ShardId, *consumerArn)
+			if len(c.shardIDs) == 0 {
+				for _, cs := range r.ChildShards {
+					pendingEnumerations++
+					go c.aggregateShard(ctx, resultsChan, *cs.ShardId, *consumerArn)
+				}
 			}
 		} else {
 			err = r.Error
@@ -119,7 +129,10 @@ func (c *cmd) Start(ctx context.Context) error {
 		return err
 	}
 	fmt.Print(color.YellowString("Generating output..."))
-	c.generateReport(results)
+	err = c.reporter.Report(c.period.start, results, c.limit)
+	if err != nil {
+		panic(err)
+	}
 	color.Yellow("OK!")
 	return nil
 }
@@ -223,56 +236,6 @@ func (i *cmd) listShards(ctx context.Context, streamName string) ([]types.Shard,
 	return r, nil
 }
 
-func (i *cmd) generateReport(stats map[string]map[string]interface{}) {
-	type shardStats struct {
-		ShardID string                 `json:"shardId"`
-		Stats   map[string]interface{} `json:"stats"`
-	}
-	type report struct {
-		From   int          `json:"from"`
-		Shards []shardStats `json:"shards"`
-	}
-	data := make([]shardStats, 0)
-	for sid, v := range stats {
-		data = append(data, shardStats{sid, v})
-	}
-	r := &report{
-		From:   int(i.period.start.Unix()),
-		Shards: data,
-	}
-	buf, err := json.Marshal(r)
-	if err != nil {
-		panic(err)
-	}
-	t, err := template.New("output").Funcs(template.FuncMap{
-		"trustedJS": func(s string) template.JS {
-			return template.JS(s)
-		},
-		"trustedHTML": func(s string) template.HTML {
-			return template.HTML(s)
-		},
-	}).Parse(outputTemplate)
-	if err != nil {
-		panic(err)
-	}
-	fname := i.out
-	file, err := os.OpenFile(fname, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-	if err != nil {
-		panic(err)
-	}
-	defer file.Sync()
-	defer file.Close()
-	err = t.Execute(file, map[string]interface{}{
-		"Date":   time.Now(),
-		"Limit":  i.limit,
-		"Report": template.JS(string(buf)),
-	})
-	if err != nil {
-		panic(err)
-	}
-	fmt.Print(color.YellowString(": %s ", fname))
-}
-
 func (c *cmd) ensureEFOConsumer(ctx context.Context) (*string, *string, error) {
 	stream, err := c.kds.DescribeStreamSummary(ctx, &kinesis.DescribeStreamSummaryInput{
 		StreamName: &c.streamName,
@@ -327,14 +290,15 @@ func (c *cmd) deregisterConsumer(streamArn, consumerArn *string) {
 	}
 }
 
-func newCMD(streamName string, kds kds, aggregatorBuilder AggregatorBuilder, limit int, p *period, out string) *cmd {
+func newCMD(streamName string, kds kds, reporter reporter, aggregatorBuilder AggregatorBuilder, limit int, p *period, shardIDs []string) *cmd {
 	return &cmd{
 		kds:               kds,
+		reporter:          reporter,
 		streamName:        streamName,
 		aggregatorBuilder: aggregatorBuilder,
 		limit:             limit,
 		period:            p,
 		shardTree:         make(map[string][]string),
-		out:               out,
+		shardIDs:          shardIDs,
 	}
 }
