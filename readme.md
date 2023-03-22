@@ -47,20 +47,23 @@ Once you see the output as above, open the file pointed by `out` option (by defa
 
 ## Usage
 ```
-  -stream string
-    	Stream name
-  -from string
-    	Start time in yyyy-mm-dd hh:mm format (Optional). Default value is current time - 5 minutes.
-  -to string
-    	End time in yyyy-mm-dd hh:mm format (Optional). Default value is current time.
-  -out string
-    	Path to output file (Optional). Default is out.html. (default "out.html")
+  Usage of khs:
   -cms
     	Use count-min-sketch (Optional) algorithm for counting key distribution (Optional). Default is false. Use this method to avoid OOM condition when analysing busy streams with high cardinality.
+  -from string
+    	Start time in yyyy-mm-dd hh:mm format (Optional). Default value is current time - 5 minutes.
   -limit int
-    	Number of keys to output in key distribution graph (Optional). Default is 10. (default 10)
-   -shard-ids string
+    	Number of keys to output in key distribution graph (Optional). (default 10)
+  -out string
+    	Path to output file (Optional). Default is out.html. (default "out.html")
+  -shard-ids string
     	Comma separated list of shard ids to analyse.
+  -stream string
+    	Stream name
+  -to string
+    	End time in yyyy-mm-dd hh:mm format (Optional). Default value is current time.
+  -top int
+    	Number of shards to emit to the report(Optional). Use 0 to emit all shards. Emitting all shards can result in a large file that may take a lot of system resources to view in the browser. (default 10)
 ```
 
 ## Sample Report
