@@ -13,6 +13,7 @@ import (
 type options struct {
 	Stream string
 	Limit  int
+	Top    int
 	CMS    bool
 	Start  string
 	End    string
