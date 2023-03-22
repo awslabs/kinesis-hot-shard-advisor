@@ -41,6 +41,7 @@ type CMD struct {
 	end               time.Time
 	aggregatorBuilder AggregatorBuilder
 	shardIDs          []string
+	top               int
 }
 
 // Start starts the execution of stream analysis workflow outlined below.
@@ -282,7 +283,7 @@ func (c *CMD) deregisterConsumer(streamArn, consumerArn *string) {
 	}
 }
 
-func NewCMD(streamName string, kds KDS, reporter Reporter, aggregatorBuilder AggregatorBuilder, limit int, start, end time.Time, shardIDs []string) *CMD {
+func NewCMD(streamName string, kds KDS, reporter Reporter, aggregatorBuilder AggregatorBuilder, limit, top int, start, end time.Time, shardIDs []string) *CMD {
 	return &CMD{
 		kds:               kds,
 		reporter:          reporter,
@@ -292,5 +293,6 @@ func NewCMD(streamName string, kds KDS, reporter Reporter, aggregatorBuilder Agg
 		start:             start,
 		end:               end,
 		shardIDs:          shardIDs,
+		top:               top,
 	}
 }

@@ -30,6 +30,7 @@ func init() {
 	flag.StringVar(&opts.End, "to", "", "End time in yyyy-mm-dd hh:mm format (Optional). Default value is current time.")
 	flag.StringVar(&opts.Out, "out", "out.html", "Path to output file (Optional). Default is out.html.")
 	flag.StringVar(&opts.SIDs, "shard-ids", "", "Comma separated list of shard ids to analyse.")
+	flag.IntVar(&opts.Top, "top", 10, "Number of shards to emit to the report(Optional). Default is 10. Use 0 to emit all shards. Emitting all shards can result in a large file that may take a lot of system resources to view in the browser.")
 }
 
 func aggregatorBuilder(start, end time.Time) func() []analyse.Aggregator {
@@ -82,7 +83,7 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	err = analyse.NewCMD(opts.Stream, kinesis.NewFromConfig(cfg), analyse.NewHTMLReporter(opts.Out), aggregatorBuilder(start, end), opts.Limit, start, end, opts.ShardIDs()).Start(ctx)
+	err = analyse.NewCMD(opts.Stream, kinesis.NewFromConfig(cfg), analyse.NewHTMLReporter(opts.Out), aggregatorBuilder(start, end), opts.Limit, opts.Top, start, end, opts.ShardIDs()).Start(ctx)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
