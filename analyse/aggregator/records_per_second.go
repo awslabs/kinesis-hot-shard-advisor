@@ -9,9 +9,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/kinesis/types"
 )
 
-// CountPerSecond is an Aggregator to count number of records
+// RecordsPerSecond is an Aggregator to count number of records
 // received per second (based on ApproximateArrivalTimestamp).
-type CountPerSecond struct {
+type RecordsPerSecond struct {
 	min             int64 // Start time of aggregation in Unix time format
 	max             int64 // End time of aggregation in Unix time format
 	timeSeries      []int // Store usage value for each shard as an array. Array index is the ordinal value of second within the specified range.
@@ -25,11 +25,11 @@ type IngressCountStats struct {
 	Max        int   `json:"max"`
 }
 
-func (i *CountPerSecond) Name() string {
+func (i *RecordsPerSecond) Name() string {
 	return "ingress-count"
 }
 
-func (i *CountPerSecond) Aggregate(record *types.Record) {
+func (i *RecordsPerSecond) Aggregate(record *types.Record) {
 	an := record.ApproximateArrivalTimestamp.Unix()
 	offset := (an - i.min)
 	if offset < 0 || an > i.max {
@@ -42,7 +42,7 @@ func (i *CountPerSecond) Aggregate(record *types.Record) {
 	}
 }
 
-func (i *CountPerSecond) Result() interface{} {
+func (i *RecordsPerSecond) Result() interface{} {
 	return IngressCountStats{
 		i.timeSeries,
 		i.sum,
@@ -50,15 +50,15 @@ func (i *CountPerSecond) Result() interface{} {
 	}
 }
 
-func (i *CountPerSecond) MaxUtilisation() float32 {
+func (i *RecordsPerSecond) MaxUtilisation() float32 {
 	const maxRecordsPerSecond = float32(1000)
 	return float32(i.maxIngressCount) / maxRecordsPerSecond
 }
 
-func NewCountPerSecond(start, end time.Time) *CountPerSecond {
+func NewCountPerSecond(start, end time.Time) *RecordsPerSecond {
 	min := start.Unix()
 	max := end.Unix()
-	return &CountPerSecond{
+	return &RecordsPerSecond{
 		min:        min,
 		max:        max,
 		timeSeries: make([]int, int(max-min)+1),
