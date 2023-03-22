@@ -10,60 +10,55 @@ import (
 )
 
 type options struct {
-	stream string
-	limit  int
-	cms    bool
-	start  string
-	end    string
-	out    string
-	sids   string
+	Stream string
+	Limit  int
+	CMS    bool
+	Start  string
+	End    string
+	Out    string
+	SIDs   string
 }
 
-type period struct {
-	start time.Time
-	end   time.Time
-}
-
-func (o *options) validate() bool {
-	if o.stream == "" {
+func (o *options) Validate() bool {
+	if o.Stream == "" {
 		fmt.Println("stream name is required")
 		return false
 	}
 	return true
 }
 
-func (o *options) period() (*period, error) {
+func (o *options) Period() (time.Time, time.Time, error) {
 	var (
-		period period
-		err    error
+		start, end time.Time
+		err        error
 	)
-	if o.start != "" {
-		period.start, err = o.parseTime(o.start)
+	if o.Start != "" {
+		start, err = o.parseTime(o.Start)
 		if err != nil {
-			return nil, err
+			return start, end, err
 		}
 	}
-	if o.end != "" {
-		period.end, err = o.parseTime(o.end)
+	if o.End != "" {
+		end, err = o.parseTime(o.End)
 		if err != nil {
-			return nil, err
+			return start, end, err
 		}
 	} else {
-		period.end = time.Now()
+		end = time.Now()
 	}
-	if o.start == "" {
-		period.start = period.end.Add(time.Minute * -5)
+	if o.Start == "" {
+		start = end.Add(time.Minute * -5)
 	}
 	// Now that we have worked out our time range in local
 	// time, convert it to UTC because Kinesis record timestamps
 	// are in UTC.
-	period.end = period.end.UTC()
-	period.start = period.start.UTC()
-	return &period, nil
+	end = end.UTC()
+	start = start.UTC()
+	return start, end, nil
 }
 
 func (o *options) parseTime(s string) (time.Time, error) {
-	d, err := time.ParseDuration(o.start)
+	d, err := time.ParseDuration(o.Start)
 	if err != nil {
 
 		t, err := time.ParseInLocation("2006-01-02 15:04", s, time.Local)
@@ -75,11 +70,11 @@ func (o *options) parseTime(s string) (time.Time, error) {
 	return time.Now().Add(d * -1), nil
 }
 
-func (o *options) shardIDs() []string {
-	if o.sids == "" {
+func (o *options) ShardIDs() []string {
+	if o.SIDs == "" {
 		return make([]string, 0)
 	}
-	r := strings.Split(o.sids, ",")
+	r := strings.Split(o.SIDs, ",")
 	for i, s := range r {
 		r[i] = strings.TrimSpace(s)
 	}

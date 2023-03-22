@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 
-package main
+package aggregator
 
 import (
 	"testing"
@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestIngressCount(t *testing.T) {
+func TestCountPerSecond(t *testing.T) {
 	end := time.Now()
 	start := time.Now().Add(time.Second * -3)
 	type w struct {
@@ -31,7 +31,7 @@ func TestIngressCount(t *testing.T) {
 		{"should ignore writes outside the bounds", []w{{-1, []byte{1}}, {0, []byte{1}}, {4, []byte{1}}}, 1, 1, []int{1, 0, 0, 0}},
 	}
 	for _, testCase := range cases {
-		c := newIngressCount(start, end)
+		c := NewCountPerSecond(start, end)
 		for _, write := range testCase.writes {
 			c.Aggregate(&types.Record{
 				PartitionKey:                aws.String("a"),
@@ -39,7 +39,7 @@ func TestIngressCount(t *testing.T) {
 				ApproximateArrivalTimestamp: aws.Time(start.Add(time.Second * time.Duration(write.arrivalSecond))),
 			})
 		}
-		r := c.Result().(ingressCountStats)
+		r := c.Result().(IngressCountStats)
 		assert.Equal(t, testCase.max, r.Max, testCase.name)
 		assert.Equal(t, testCase.sum, r.Sum, testCase.name)
 		assert.Equal(t, testCase.timeSeries, r.TimeSeries, testCase.name)

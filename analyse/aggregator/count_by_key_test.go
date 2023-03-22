@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 
-package main
+package aggregator
 
 import (
 	"testing"
@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCount(t *testing.T) {
+func TestCountByKey(t *testing.T) {
 	type w struct {
 		key   string
 		count int
@@ -25,7 +25,7 @@ func TestCount(t *testing.T) {
 		{"should count writes by key", []w{{"a", 2}, {"b", 10}}, []partitionKeyCount{{"a", 2}, {"b", 10}}},
 	}
 	for _, testCase := range testCases {
-		c := newCount()
+		c := NewCountByKey()
 		for _, write := range testCase.writes {
 			for i := 0; i < write.count; i++ {
 				c.Aggregate(&types.Record{

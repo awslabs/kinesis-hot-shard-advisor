@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 
-package main
+package analyse
 
 import (
 	"context"
@@ -24,12 +24,6 @@ const efoConsumerName string = "khs-062DE8C182964A218E936DF0938F48B3"
 //go:embed template.html
 var outputTemplate string
 
-type Aggregator interface {
-	Name() string
-	Aggregate(record *types.Record)
-	Result() interface{}
-}
-
 type aggregatedResult struct {
 	ShardID     string
 	ChildShards []types.ChildShard
@@ -37,16 +31,15 @@ type aggregatedResult struct {
 	Result      map[string]interface{}
 }
 
-type AggregatorBuilder func() []Aggregator
-
-// cmd represents the cli command for analysing kinesis data streams.
-type cmd struct {
+// CMD represents the cli command for analysing kinesis data streams.
+type CMD struct {
 	streamName        string
-	kds               kds
-	reporter          reporter
+	kds               KDS
+	reporter          Reporter
 	shardTree         map[string][]string
 	limit             int
-	period            *period
+	start             time.Time
+	end               time.Time
 	aggregatorBuilder AggregatorBuilder
 	shardIDs          []string
 }
@@ -57,9 +50,9 @@ type cmd struct {
 //     Shards are read concurrently without loosing the order of messages
 //   - Generate the output
 //   - Delete EFO consumer
-func (c *cmd) Start(ctx context.Context) error {
+func (c *CMD) Start(ctx context.Context) error {
 	var bar *pb.ProgressBar
-	color.Green("Stream: %s\nFrom: %v\nTo: %v", c.streamName, c.period.start, c.period.end)
+	color.Green("Stream: %s\nFrom: %v\nTo: %v", c.streamName, c.start, c.end)
 	fmt.Print(color.YellowString("Creating an EFO consumer..."))
 	streamArn, consumerArn, err := c.ensureEFOConsumer(ctx)
 	if err != nil {
@@ -129,7 +122,7 @@ func (c *cmd) Start(ctx context.Context) error {
 		return err
 	}
 	fmt.Print(color.YellowString("Generating output..."))
-	err = c.reporter.Report(c.period.start, results, c.limit)
+	err = c.reporter.Report(c.start, results, c.limit)
 	if err != nil {
 		panic(err)
 	}
@@ -137,7 +130,7 @@ func (c *cmd) Start(ctx context.Context) error {
 	return nil
 }
 
-func (c *cmd) aggregateShard(ctx context.Context, resultsChan chan<- *aggregatedResult, shardID, consumerArn string) {
+func (c *CMD) aggregateShard(ctx context.Context, resultsChan chan<- *aggregatedResult, shardID, consumerArn string) {
 	var (
 		continuationSequenceNumber *string
 		startingPosition           *types.StartingPosition
@@ -149,7 +142,7 @@ func (c *cmd) aggregateShard(ctx context.Context, resultsChan chan<- *aggregated
 		if continuationSequenceNumber == nil {
 			startingPosition = &types.StartingPosition{
 				Type:      types.ShardIteratorTypeAtTimestamp,
-				Timestamp: &c.period.start,
+				Timestamp: &c.start,
 			}
 		} else {
 			startingPosition = &types.StartingPosition{
@@ -178,7 +171,7 @@ func (c *cmd) aggregateShard(ctx context.Context, resultsChan chan<- *aggregated
 						continuationSequenceNumber = value.ContinuationSequenceNumber
 						stop := false
 						for _, r := range value.Records {
-							if c.period.end.Sub(*r.ApproximateArrivalTimestamp) > 0 {
+							if c.end.Sub(*r.ApproximateArrivalTimestamp) > 0 {
 								for _, a := range aggregators {
 									a.Aggregate(&r)
 								}
@@ -209,7 +202,7 @@ func (c *cmd) aggregateShard(ctx context.Context, resultsChan chan<- *aggregated
 	}
 }
 
-func (i *cmd) listShards(ctx context.Context, streamName string) ([]types.Shard, error) {
+func (i *CMD) listShards(ctx context.Context, streamName string) ([]types.Shard, error) {
 	var (
 		lso *kinesis.ListShardsOutput
 		err error
@@ -236,7 +229,7 @@ func (i *cmd) listShards(ctx context.Context, streamName string) ([]types.Shard,
 	return r, nil
 }
 
-func (c *cmd) ensureEFOConsumer(ctx context.Context) (*string, *string, error) {
+func (c *CMD) ensureEFOConsumer(ctx context.Context) (*string, *string, error) {
 	stream, err := c.kds.DescribeStreamSummary(ctx, &kinesis.DescribeStreamSummaryInput{
 		StreamName: &c.streamName,
 	})
@@ -276,7 +269,7 @@ func (c *cmd) ensureEFOConsumer(ctx context.Context) (*string, *string, error) {
 	}
 }
 
-func (c *cmd) deregisterConsumer(streamArn, consumerArn *string) {
+func (c *CMD) deregisterConsumer(streamArn, consumerArn *string) {
 	fmt.Print(color.YellowString("Deleting EFO Consumer..."))
 	_, err := c.kds.DeregisterStreamConsumer(context.Background(), &kinesis.DeregisterStreamConsumerInput{
 		StreamARN:   streamArn,
@@ -290,14 +283,15 @@ func (c *cmd) deregisterConsumer(streamArn, consumerArn *string) {
 	}
 }
 
-func newCMD(streamName string, kds kds, reporter reporter, aggregatorBuilder AggregatorBuilder, limit int, p *period, shardIDs []string) *cmd {
-	return &cmd{
+func NewCMD(streamName string, kds KDS, reporter Reporter, aggregatorBuilder AggregatorBuilder, limit int, start, end time.Time, shardIDs []string) *CMD {
+	return &CMD{
 		kds:               kds,
 		reporter:          reporter,
 		streamName:        streamName,
 		aggregatorBuilder: aggregatorBuilder,
 		limit:             limit,
-		period:            p,
+		start:             start,
+		end:               end,
 		shardTree:         make(map[string][]string),
 		shardIDs:          shardIDs,
 	}

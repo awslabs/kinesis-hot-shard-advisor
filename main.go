@@ -9,39 +9,42 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/ratelimit"
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/kinesis"
+	"github.com/awslabs/kinesis-hot-shard-advisor/analyse"
+	"github.com/awslabs/kinesis-hot-shard-advisor/analyse/aggregator"
 )
 
 var opts = &options{}
 
 func init() {
-	flag.StringVar(&opts.stream, "stream", "", "Stream name")
-	flag.IntVar(&opts.limit, "limit", 10, "Number of keys to output in key distribution graph (Optional). Default is 10.")
-	flag.BoolVar(&opts.cms, "cms", false, "Use count-min-sketch (Optional) algorithm for counting key distribution (Optional). Default is false. Use this method to avoid OOM condition when analysing busy streams with high cardinality.")
-	flag.StringVar(&opts.start, "from", "", "Start time in yyyy-mm-dd hh:mm format (Optional). Default value is current time - 5 minutes.")
-	flag.StringVar(&opts.end, "to", "", "End time in yyyy-mm-dd hh:mm format (Optional). Default value is current time.")
-	flag.StringVar(&opts.out, "out", "out.html", "Path to output file (Optional). Default is out.html.")
-	flag.StringVar(&opts.sids, "shard-ids", "", "Comma separated list of shard ids to analyse.")
+	flag.StringVar(&opts.Stream, "stream", "", "Stream name")
+	flag.IntVar(&opts.Limit, "limit", 10, "Number of keys to output in key distribution graph (Optional). Default is 10.")
+	flag.BoolVar(&opts.CMS, "cms", false, "Use count-min-sketch (Optional) algorithm for counting key distribution (Optional). Default is false. Use this method to avoid OOM condition when analysing busy streams with high cardinality.")
+	flag.StringVar(&opts.Start, "from", "", "Start time in yyyy-mm-dd hh:mm format (Optional). Default value is current time - 5 minutes.")
+	flag.StringVar(&opts.End, "to", "", "End time in yyyy-mm-dd hh:mm format (Optional). Default value is current time.")
+	flag.StringVar(&opts.Out, "out", "out.html", "Path to output file (Optional). Default is out.html.")
+	flag.StringVar(&opts.SIDs, "shard-ids", "", "Comma separated list of shard ids to analyse.")
 }
 
-func aggregatorBuilder(p *period) func() []Aggregator {
-	return func() []Aggregator {
-		aggregators := make([]Aggregator, 0)
-		if opts.cms {
-			c, err := newCMS(5, 10000, opts.limit)
+func aggregatorBuilder(start, end time.Time) func() []analyse.Aggregator {
+	return func() []analyse.Aggregator {
+		aggregators := make([]analyse.Aggregator, 0)
+		if opts.CMS {
+			c, err := aggregator.NewCMSByKey(5, 10000, opts.Limit)
 			if err != nil {
 				panic(err)
 			}
 			aggregators = append(aggregators, c)
 		} else {
-			aggregators = append(aggregators, newCount())
+			aggregators = append(aggregators, aggregator.NewCountByKey())
 		}
-		aggregators = append(aggregators, newIngressBytes(p.start, p.end), newIngressCount(p.start, p.end))
+		aggregators = append(aggregators, aggregator.NewBytesPerSecond(start, end), aggregator.NewCountPerSecond(start, end))
 		return aggregators
 	}
 }
@@ -52,10 +55,10 @@ func main() {
 		ctx context.Context
 	)
 	flag.Parse()
-	if !opts.validate() {
+	if !opts.Validate() {
 		os.Exit(1)
 	}
-	p, err := opts.period()
+	start, end, err := opts.Period()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -79,7 +82,7 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	err = newCMD(opts.stream, kinesis.NewFromConfig(cfg), newHTMLReporter(opts.out), aggregatorBuilder(p), opts.limit, p, opts.shardIDs()).Start(ctx)
+	err = analyse.NewCMD(opts.Stream, kinesis.NewFromConfig(cfg), analyse.NewHTMLReporter(opts.Out), aggregatorBuilder(start, end), opts.Limit, start, end, opts.ShardIDs()).Start(ctx)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)

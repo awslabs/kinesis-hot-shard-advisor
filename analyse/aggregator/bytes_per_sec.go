@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 
-package main
+package aggregator
 
 import (
 	"time"
@@ -9,9 +9,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/kinesis/types"
 )
 
-// ingressBytes is an Aggregator to count number of bytes
+// BytesPerSecond is an Aggregator to count number of bytes
 // received per second (based on ApproximateArrivalTimestamp).
-type ingressBytes struct {
+type BytesPerSecond struct {
 	min        int64 // Start time of aggregation in Unix time format
 	max        int64 // End time of aggregation in Unix time format
 	timeSeries []int // Store usage value for each shard as an array. Array index is the ordinal value of second within the specified range.
@@ -19,17 +19,17 @@ type ingressBytes struct {
 	maxIngress int
 }
 
-type ingressBytesStats struct {
+type IngressBytesStats struct {
 	TimeSeries []int `json:"timeSeries"`
 	Sum        int   `json:"sum"`
 	Max        int   `json:"max"`
 }
 
-func (i *ingressBytes) Name() string {
+func (i *BytesPerSecond) Name() string {
 	return "ingress-bytes"
 }
 
-func (i *ingressBytes) Aggregate(record *types.Record) {
+func (i *BytesPerSecond) Aggregate(record *types.Record) {
 	an := record.ApproximateArrivalTimestamp.Unix()
 	offset := (an - i.min)
 	if offset < 0 || an > i.max {
@@ -42,18 +42,18 @@ func (i *ingressBytes) Aggregate(record *types.Record) {
 	}
 }
 
-func (i *ingressBytes) Result() interface{} {
-	return ingressBytesStats{
+func (i *BytesPerSecond) Result() interface{} {
+	return IngressBytesStats{
 		i.timeSeries,
 		i.sum,
 		i.maxIngress,
 	}
 }
 
-func newIngressBytes(start, end time.Time) *ingressBytes {
+func NewBytesPerSecond(start, end time.Time) *BytesPerSecond {
 	min := start.Unix()
 	max := end.Unix()
-	return &ingressBytes{
+	return &BytesPerSecond{
 		min:        min,
 		max:        max,
 		timeSeries: make([]int, int(max-min)+1),
