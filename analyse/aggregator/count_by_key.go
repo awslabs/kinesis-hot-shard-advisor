@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 
-package main
+package aggregator
 
 import (
 	"sort"
@@ -9,19 +9,19 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/kinesis/types"
 )
 
-type count struct {
+type CountByKey struct {
 	store map[string]int
 }
 
-func (c *count) Name() string {
+func (c *CountByKey) Name() string {
 	return "count"
 }
 
-func (c *count) Aggregate(r *types.Record) {
+func (c *CountByKey) Aggregate(r *types.Record) {
 	c.store[*r.PartitionKey] = c.store[*r.PartitionKey] + 1
 }
 
-func (c *count) Result() interface{} {
+func (c *CountByKey) Result() interface{} {
 	records := make([]partitionKeyCount, 0)
 	for partitionKey, count := range c.store {
 		records = append(records, partitionKeyCount{
@@ -35,8 +35,16 @@ func (c *count) Result() interface{} {
 	return records
 }
 
-func newCount() *count {
-	return &count{
+func NewCountByKey() *CountByKey {
+	return &CountByKey{
 		store: make(map[string]int),
 	}
+}
+
+// partitionKeyCount is used by counting aggregators
+// to report the number of times a given partition key
+// appears in a shard.
+type partitionKeyCount struct {
+	PartitionKey string `json:"partitionKey"`
+	Count        int    `json:"count"`
 }

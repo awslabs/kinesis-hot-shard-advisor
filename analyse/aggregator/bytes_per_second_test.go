@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 
-package main
+package aggregator
 
 import (
 	"testing"
@@ -31,7 +31,7 @@ func TestIngressBytes(t *testing.T) {
 		{"should ignore writes outside the bounds", []w{{-1, []byte{1}}, {0, []byte{1}}, {4, []byte{1}}}, 1, 1, []int{1, 0, 0, 0}},
 	}
 	for _, testCase := range cases {
-		c := newIngressBytes(start, end)
+		c := NewBytesPerSecond(start, end)
 		for _, write := range testCase.writes {
 			c.Aggregate(&types.Record{
 				PartitionKey:                aws.String("a"),
@@ -39,7 +39,7 @@ func TestIngressBytes(t *testing.T) {
 				ApproximateArrivalTimestamp: aws.Time(start.Add(time.Second * time.Duration(write.arrivalSecond))),
 			})
 		}
-		r := c.Result().(ingressBytesStats)
+		r := c.Result().(IngressBytesStats)
 		assert.Equal(t, testCase.max, r.Max, testCase.name)
 		assert.Equal(t, testCase.sum, r.Sum, testCase.name)
 		assert.Equal(t, testCase.timeSeries, r.TimeSeries, testCase.name)

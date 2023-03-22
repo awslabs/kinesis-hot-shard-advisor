@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 
-package main
+package aggregator
 
 import (
 	"fmt"
@@ -14,9 +14,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/kinesis/types"
 )
 
-var c *cms
+var c *CMSByKey
 
-func TestCMS(t *testing.T) {
+func TestCMSByKey(t *testing.T) {
 	type input struct {
 		key   string
 		count int
@@ -32,7 +32,7 @@ func TestCMS(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		cmsAggregator, err := newCMS(5, 5, 2)
+		cmsAggregator, err := NewCMSByKey(5, 5, 2)
 		if err != nil {
 			t.FailNow()
 		}
@@ -72,7 +72,7 @@ func BenchmarkUniqueKeys1M(b *testing.B) {
 }
 
 func benchmarkUniqueKeys(b *testing.B, count int) {
-	a, err := newCMS(5, 10000, 100)
+	a, err := NewCMSByKey(5, 10000, 100)
 	if err != nil {
 		b.FailNow()
 	}
@@ -88,7 +88,7 @@ func benchmarkUniqueKeys(b *testing.B, count int) {
 func benchmarkNewCMS(b *testing.B, hashes, space, limit int) {
 	var err error
 	for i := 0; i < b.N; i++ {
-		c, err = newCMS(hashes, space, limit)
+		c, err = NewCMSByKey(hashes, space, limit)
 		if err != nil {
 			b.FailNow()
 		}

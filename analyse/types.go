@@ -1,16 +1,25 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 
-package main
+package analyse
 
 import (
 	"context"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/kinesis"
+	"github.com/aws/aws-sdk-go-v2/service/kinesis/types"
 )
 
-type kds interface {
+type Aggregator interface {
+	Name() string
+	Aggregate(record *types.Record)
+	Result() interface{}
+}
+
+type AggregatorBuilder func() []Aggregator
+
+type KDS interface {
 	DescribeStreamSummary(ctx context.Context, params *kinesis.DescribeStreamSummaryInput, optFns ...func(*kinesis.Options)) (*kinesis.DescribeStreamSummaryOutput, error)
 	ListShards(ctx context.Context, params *kinesis.ListShardsInput, optFns ...func(*kinesis.Options)) (*kinesis.ListShardsOutput, error)
 	SubscribeToShard(ctx context.Context, params *kinesis.SubscribeToShardInput, optFns ...func(*kinesis.Options)) (*kinesis.SubscribeToShardOutput, error)
@@ -19,14 +28,6 @@ type kds interface {
 	DeregisterStreamConsumer(ctx context.Context, params *kinesis.DeregisterStreamConsumerInput, optFns ...func(*kinesis.Options)) (*kinesis.DeregisterStreamConsumerOutput, error)
 }
 
-type reporter interface {
+type Reporter interface {
 	Report(start time.Time, stats map[string]map[string]interface{}, limit int) error
-}
-
-// partitionKeyCount is used by counting aggregators
-// to report the number of times a given partition key
-// appears in a shard.
-type partitionKeyCount struct {
-	PartitionKey string `json:"partitionKey"`
-	Count        int    `json:"count"`
 }

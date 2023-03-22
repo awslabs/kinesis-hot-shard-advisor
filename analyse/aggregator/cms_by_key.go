@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 
-package main
+package aggregator
 
 import (
 	"crypto/rand"
@@ -12,7 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/kinesis/types"
 )
 
-// cms counts the number of times a partition key
+// CMSByKey counts the number of times a partition key
 // appears in a shard using Count Min Sketch algorithm.
 // This is the preferred way to count when the shard
 // being analyzed has a high cardinality in partition key.
@@ -20,18 +20,18 @@ import (
 // method that can be performed using a fixed amount of
 // memory. This works well when the number of items
 // being counted (i.e. partition keys) is very large.
-type cms struct {
+type CMSByKey struct {
 	sketch map[string][]int
 	seed   maphash.Seed
 	topK   []partitionKeyCount
 	count  int64
 }
 
-func (c *cms) Name() string {
+func (c *CMSByKey) Name() string {
 	return "cms"
 }
 
-func (c *cms) Aggregate(r *types.Record) {
+func (c *CMSByKey) Aggregate(r *types.Record) {
 	u := c.addToSketch(*r.PartitionKey)
 	if !c.updateTopK(*r.PartitionKey, u) {
 		c.addToTopK(*r.PartitionKey, u)
@@ -39,14 +39,14 @@ func (c *cms) Aggregate(r *types.Record) {
 	c.count++
 }
 
-func (c *cms) Result() interface{} {
+func (c *CMSByKey) Result() interface{} {
 	return c.topK
 }
 
 // updateTopK finds the partition key in current top list and updates
 // its count. If the partition key is not found in the top list, this
 // method returns false otherwise true.
-func (c *cms) updateTopK(key string, count int) bool {
+func (c *CMSByKey) updateTopK(key string, count int) bool {
 	for i := 0; i < len(c.topK); i++ {
 		r := &c.topK[i]
 		if r.PartitionKey == key {
@@ -66,7 +66,7 @@ func (c *cms) updateTopK(key string, count int) bool {
 	return false
 }
 
-func (c *cms) addToTopK(key string, count int) {
+func (c *CMSByKey) addToTopK(key string, count int) {
 	if c.topK[len(c.topK)-1].Count > count {
 		return
 	}
@@ -82,7 +82,7 @@ func (c *cms) addToTopK(key string, count int) {
 	}
 }
 
-func (c *cms) addToSketch(key string) int {
+func (c *CMSByKey) addToSketch(key string) int {
 	min := 0
 	for h, slots := range c.sketch {
 		hash := maphash.Hash{}
@@ -99,7 +99,7 @@ func (c *cms) addToSketch(key string) int {
 	return min
 }
 
-func newCMS(hashes, slots, limit int) (*cms, error) {
+func NewCMSByKey(hashes, slots, limit int) (*CMSByKey, error) {
 	sketch := make(map[string][]int)
 	buf := make([]byte, 32)
 	for i := 0; i < hashes; i++ {
@@ -110,7 +110,7 @@ func newCMS(hashes, slots, limit int) (*cms, error) {
 		h := base64.RawStdEncoding.EncodeToString(buf)
 		sketch[h] = make([]int, slots)
 	}
-	return &cms{
+	return &CMSByKey{
 		sketch: sketch,
 		seed:   maphash.MakeSeed(),
 		topK:   make([]partitionKeyCount, limit),

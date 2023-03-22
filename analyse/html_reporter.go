@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 
-package main
+package analyse
 
 import (
 	"encoding/json"
@@ -13,11 +13,11 @@ import (
 	"github.com/fatih/color"
 )
 
-type htmlReporter struct {
+type HTMLReporter struct {
 	fname string
 }
 
-func (rp *htmlReporter) Report(start time.Time, stats map[string]map[string]interface{}, limit int) error {
+func (rp *HTMLReporter) Report(start time.Time, stats map[string]map[string]interface{}, limit int) error {
 	type shardStats struct {
 		ShardID string                 `json:"shardId"`
 		Stats   map[string]interface{} `json:"stats"`
@@ -68,8 +68,8 @@ func (rp *htmlReporter) Report(start time.Time, stats map[string]map[string]inte
 	return nil
 }
 
-func newHTMLReporter(fname string) *htmlReporter {
-	return &htmlReporter{
+func NewHTMLReporter(fname string) *HTMLReporter {
+	return &HTMLReporter{
 		fname: fname,
 	}
 }
