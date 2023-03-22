@@ -4,6 +4,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -54,6 +55,9 @@ func (o *options) Period() (time.Time, time.Time, error) {
 	// are in UTC.
 	end = end.UTC()
 	start = start.UTC()
+	if end.Sub(start) <= 0 {
+		return start, end, errors.New("end time must be greater than start time")
+	}
 	return start, end, nil
 }
 
