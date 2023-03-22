@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCountPerSecond(t *testing.T) {
+func TestRecordsPerSecond(t *testing.T) {
 	end := time.Now()
 	start := time.Now().Add(time.Second * -3)
 	type w struct {
