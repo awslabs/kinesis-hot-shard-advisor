@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	_ "embed"
@@ -23,13 +24,6 @@ const efoConsumerName string = "khs-062DE8C182964A218E936DF0938F48B3"
 
 //go:embed template.html
 var outputTemplate string
-
-type aggregatedResult struct {
-	ShardID     string
-	ChildShards []types.ChildShard
-	Error       error
-	Result      map[string]interface{}
-}
 
 // CMD represents the cli command for analysing kinesis data streams.
 type CMD struct {
@@ -99,13 +93,13 @@ func (c *CMD) Start(ctx context.Context) error {
 		}
 	}
 
-	results := make(map[string]map[string]interface{})
+	aggregatedShards := make([]*aggregatedResult, 0)
 	for pendingEnumerations > 0 {
 		r := <-resultsChan
 		pendingEnumerations--
 		bar.Increment()
 		if r.Error == nil {
-			results[r.ShardID] = r.Result
+			aggregatedShards = append(aggregatedShards, r)
 			if len(c.shardIDs) == 0 {
 				for _, cs := range r.ChildShards {
 					pendingEnumerations++
@@ -121,8 +115,19 @@ func (c *CMD) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	fmt.Print(color.YellowString("Generating output..."))
-	err = c.reporter.Report(c.start, results, c.limit)
+	reportData := make(map[string]map[string]interface{})
+	aggregatedShards = c.chooseTopN(aggregatedShards)
+	for _, s := range aggregatedShards {
+		r := make(map[string]interface{})
+		for _, a := range s.Aggregators {
+			r[a.Name()] = a.Result()
+		}
+		reportData[s.ShardID] = r
+	}
+
+	err = c.reporter.Report(c.start, reportData, c.limit)
 	if err != nil {
 		panic(err)
 	}
@@ -181,14 +186,10 @@ func (c *CMD) aggregateShard(ctx context.Context, resultsChan chan<- *aggregated
 							}
 						}
 						if continuationSequenceNumber == nil || *value.MillisBehindLatest == 0 || stop {
-							r := make(map[string]interface{})
-							for _, a := range aggregators {
-								r[a.Name()] = a.Result()
-							}
 							resultsChan <- &aggregatedResult{
 								ShardID:     shardID,
 								ChildShards: value.ChildShards,
-								Result:      r,
+								Aggregators: aggregators,
 							}
 							return
 						}
@@ -283,6 +284,28 @@ func (c *CMD) deregisterConsumer(streamArn, consumerArn *string) {
 	}
 }
 
+func (c *CMD) chooseTopN(results []*aggregatedResult) []*aggregatedResult {
+	if c.top == 0 || c.top > len(results) {
+		return results
+	}
+
+	sort.Slice(results, func(i, j int) bool {
+		a := results[i]
+		b := results[j]
+		for i := range a.Aggregators {
+			if tma, ok := a.Aggregators[i].(throttledMetric); ok {
+				tmb := b.Aggregators[i].(throttledMetric)
+				if tma.MaxUtilisation() > tmb.MaxUtilisation() {
+					return true
+				}
+			}
+		}
+		return false
+	})
+
+	return results[0:c.top]
+}
+
 func NewCMD(streamName string, kds KDS, reporter Reporter, aggregatorBuilder AggregatorBuilder, limit, top int, start, end time.Time, shardIDs []string) *CMD {
 	return &CMD{
 		kds:               kds,
@@ -295,4 +318,15 @@ func NewCMD(streamName string, kds KDS, reporter Reporter, aggregatorBuilder Agg
 		shardIDs:          shardIDs,
 		top:               top,
 	}
+}
+
+type aggregatedResult struct {
+	ShardID     string
+	ChildShards []types.ChildShard
+	Error       error
+	Aggregators []Aggregator
+}
+
+type throttledMetric interface {
+	MaxUtilisation() float32
 }
