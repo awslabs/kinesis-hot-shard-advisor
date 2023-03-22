@@ -36,7 +36,6 @@ type CMD struct {
 	streamName        string
 	kds               KDS
 	reporter          Reporter
-	shardTree         map[string][]string
 	limit             int
 	start             time.Time
 	end               time.Time
@@ -292,7 +291,6 @@ func NewCMD(streamName string, kds KDS, reporter Reporter, aggregatorBuilder Agg
 		limit:             limit,
 		start:             start,
 		end:               end,
-		shardTree:         make(map[string][]string),
 		shardIDs:          shardIDs,
 	}
 }
