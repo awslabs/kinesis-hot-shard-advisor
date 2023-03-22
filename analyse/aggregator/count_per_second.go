@@ -50,6 +50,11 @@ func (i *CountPerSecond) Result() interface{} {
 	}
 }
 
+func (i *CountPerSecond) MaxUtilisation() float32 {
+	const maxRecordsPerSecond = float32(1000)
+	return float32(i.maxIngressCount) / maxRecordsPerSecond
+}
+
 func NewCountPerSecond(start, end time.Time) *CountPerSecond {
 	min := start.Unix()
 	max := end.Unix()

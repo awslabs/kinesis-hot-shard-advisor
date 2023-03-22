@@ -50,6 +50,11 @@ func (i *BytesPerSecond) Result() interface{} {
 	}
 }
 
+func (a *BytesPerSecond) MaxUtilisation() float32 {
+	const maxBytesPerSecond = float32(1024 * 1024)
+	return float32(a.maxIngress) / maxBytesPerSecond
+}
+
 func NewBytesPerSecond(start, end time.Time) *BytesPerSecond {
 	min := start.Unix()
 	max := end.Unix()
