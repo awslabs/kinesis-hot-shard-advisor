@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 
-package analyse
+package service
 
 import (
 	"encoding/json"
@@ -10,8 +10,13 @@ import (
 	"os"
 	"time"
 
+	_ "embed"
+
 	"github.com/fatih/color"
 )
+
+//go:embed template.html
+var outputTemplate string
 
 type HTMLReporter struct {
 	fname string

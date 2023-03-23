@@ -18,6 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/kinesis"
 	"github.com/awslabs/kinesis-hot-shard-advisor/analyse"
 	"github.com/awslabs/kinesis-hot-shard-advisor/analyse/aggregator"
+	"github.com/awslabs/kinesis-hot-shard-advisor/analyse/service"
 )
 
 var opts = &options{}
@@ -33,9 +34,9 @@ func init() {
 	flag.IntVar(&opts.Top, "top", 10, "Number of shards to emit to the report(Optional). Use 0 to emit all shards. Emitting all shards can result in a large file that may take a lot of system resources to view in the browser.")
 }
 
-func aggregatorBuilder(start, end time.Time) func() []analyse.Aggregator {
-	return func() []analyse.Aggregator {
-		aggregators := make([]analyse.Aggregator, 0)
+func aggregatorBuilder(start, end time.Time) func() []service.Aggregator {
+	return func() []service.Aggregator {
+		aggregators := make([]service.Aggregator, 0)
 		if opts.CMS {
 			c, err := aggregator.NewCMSByKey(5, 10000, opts.Limit)
 			if err != nil {
@@ -83,7 +84,17 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	err = analyse.NewCMD(opts.Stream, kinesis.NewFromConfig(cfg), analyse.NewHTMLReporter(opts.Out), aggregatorBuilder(start, end), opts.Limit, opts.Top, start, end, opts.ShardIDs()).Start(ctx)
+	cmd := analyse.NewCMD(
+		opts.Stream,
+		kinesis.NewFromConfig(cfg),
+		service.NewHTMLReporter(opts.Out),
+		aggregatorBuilder(start, end),
+		opts.Limit,
+		opts.Top,
+		start,
+		end,
+		opts.ShardIDs())
+	err = cmd.Start(ctx)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
