@@ -90,7 +90,7 @@ func (c *CMD) Start(ctx context.Context) error {
 	fmt.Print(color.YellowString("Generating output..."))
 	err = c.output.Write(output)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	color.Yellow("OK!")
 	return nil
