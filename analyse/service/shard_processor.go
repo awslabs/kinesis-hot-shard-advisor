@@ -13,8 +13,8 @@ import (
 
 type ProcessOutput struct {
 	ShardID     string
-	ChildShards []types.ChildShard
-	Error       error
+	childShards []types.ChildShard
+	err         error
 	Aggregators []Aggregator
 }
 
@@ -48,16 +48,16 @@ func (p *ShardProcessor) Process(ctx context.Context, consumerArn string, parent
 		r := <-resultsChan
 		pendingEnumerations--
 		progress()
-		if r.Error == nil {
+		if r.err == nil {
 			aggregatedShards = append(aggregatedShards, r)
 			if children {
-				for _, cs := range r.ChildShards {
+				for _, cs := range r.childShards {
 					pendingEnumerations++
 					go p.aggregateShard(ctx, resultsChan, *cs.ShardId, consumerArn)
 				}
 			}
 		} else {
-			err = r.Error
+			err = r.err
 		}
 	}
 
@@ -95,7 +95,7 @@ func (p *ShardProcessor) aggregateShard(ctx context.Context, resultsChan chan<- 
 			StartingPosition: startingPosition,
 		})
 		if err != nil {
-			resultsChan <- &ProcessOutput{Error: err}
+			resultsChan <- &ProcessOutput{err: err}
 			return
 		}
 		subscribed := true
@@ -122,7 +122,7 @@ func (p *ShardProcessor) aggregateShard(ctx context.Context, resultsChan chan<- 
 						if continuationSequenceNumber == nil || *value.MillisBehindLatest == 0 || stop {
 							resultsChan <- &ProcessOutput{
 								ShardID:     shardID,
-								ChildShards: value.ChildShards,
+								childShards: value.ChildShards,
 								Aggregators: aggregators,
 							}
 							return
@@ -130,7 +130,7 @@ func (p *ShardProcessor) aggregateShard(ctx context.Context, resultsChan chan<- 
 					}
 				}
 			case <-ctx.Done():
-				resultsChan <- &ProcessOutput{Error: ctx.Err()}
+				resultsChan <- &ProcessOutput{err: ctx.Err()}
 				return
 			}
 		}
