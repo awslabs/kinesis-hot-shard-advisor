@@ -20,7 +20,7 @@ clean:
 	rm -rf ./build
 
 test: build
-	CGO_ENABLED=0 AWS_REGION="${AWS_REGION}" go test -timeout 5s -covermode=count -coverpkg="github.com/awslabs/kinesis-hot-shard-advisor/analyse,github.com/awslabs/kinesis-hot-shard-advisor/analyse/aggregator" -coverprofile=build/cover.out ./...
+	CGO_ENABLED=0 AWS_REGION="${AWS_REGION}" go test -timeout 5s -covermode=count -coverpkg="github.com/awslabs/kinesis-hot-shard-advisor/analyse,aggregator,service" -coverprofile=build/cover.out ./...
 
 install: test build
 	cp "./build/khs${TARGET}" /usr/local/bin/

@@ -1,7 +1,7 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
 
-package analyse
+package service
 
 import (
 	"context"
@@ -30,4 +30,8 @@ type KDS interface {
 
 type Reporter interface {
 	Report(start time.Time, stats map[string]map[string]interface{}, limit int) error
+}
+
+type throttledMetric interface {
+	MaxUtilisation() float32
 }
