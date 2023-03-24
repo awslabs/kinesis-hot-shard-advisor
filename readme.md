@@ -1,6 +1,8 @@
 # Amazon Kinesis Hot Shard Advisor (khs)
 Easily identify hot shard and hot key on your Kinesis data streams.
 
+[![codecov](https://codecov.io/gh/awslabs/kinesis-hot-shard-advisor/branch/main/graph/badge.svg?token=57S7SYOYQ7)](https://codecov.io/gh/awslabs/kinesis-hot-shard-advisor)
+
 ## About
 The Amazon Kinesis Hot Shard Advisor is a CLI tool that simplifies identifying whether you have hot key or hot shard issues on your Kinesis data streams. The tool can also identify whether you are hitting the shard level throughput limit per-second basis.
 
