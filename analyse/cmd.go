@@ -56,7 +56,11 @@ func newCMD(streamName string, shardIDs []string, discover discover, efo efo, ou
 //   - Generate the output
 //   - Delete EFO consumer
 func (c *CMD) Start(ctx context.Context) error {
-	var bar *pb.ProgressBar
+	var (
+		bar    *pb.ProgressBar
+		output []*service.ProcessOutput
+	)
+
 	color.Green("Stream: %s\nFrom: %v\nTo: %v", c.streamName, c.start, c.end)
 	fmt.Print(color.YellowString("Creating an EFO consumer..."))
 	streamArn, consumerArn, err := c.efo.EnsureEFOConsumer(ctx)
@@ -65,7 +69,7 @@ func (c *CMD) Start(ctx context.Context) error {
 	}
 	defer c.efo.DeregisterConsumer(streamArn, consumerArn)
 	color.Yellow(": %s OK!\n", *consumerArn)
-	output := make([]*service.ProcessOutput, 0)
+
 	if len(c.shardIDs) > 0 {
 		bar = pb.StartNew(len(c.shardIDs))
 		output, err = c.processor.Process(ctx, *consumerArn, c.shardIDs, false, func() { bar.Increment() })
