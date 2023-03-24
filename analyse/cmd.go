@@ -56,12 +56,8 @@ func newCMD(streamName string, shardIDs []string, discover discover, efo efo, ou
 //   - Generate the output
 //   - Delete EFO consumer
 func (c *CMD) Start(ctx context.Context) error {
-	var (
-		bar    *pb.ProgressBar
-		output []*service.ProcessOutput
-	)
-
 	color.Green("Stream: %s\nFrom: %v\nTo: %v", c.streamName, c.start, c.end)
+
 	fmt.Print(color.YellowString("Creating an EFO consumer..."))
 	streamArn, consumerArn, err := c.efo.EnsureEFOConsumer(ctx)
 	if err != nil {
@@ -70,26 +66,10 @@ func (c *CMD) Start(ctx context.Context) error {
 	defer c.deregisterConsumer(streamArn, consumerArn)
 	color.Yellow(": %s OK!\n", *consumerArn)
 
-	if len(c.shardIDs) > 0 {
-		bar = pb.StartNew(len(c.shardIDs))
-		output, err = c.processor.Process(ctx, *consumerArn, c.shardIDs, false, func() { bar.Increment() })
-		if err != nil {
-			return err
-		}
-	} else {
-		fmt.Print(color.YellowString("Listing shards for stream %s...", c.streamName))
-		shardIDs, l, err := c.discover.ParentShards(ctx)
-		if err != nil {
-			return err
-		}
-		color.Yellow(" OK!")
-		bar = pb.StartNew(l)
-		output, err = c.processor.Process(ctx, *consumerArn, shardIDs, true, func() { bar.Increment() })
-		if err != nil {
-			return err
-		}
+	output, err := c.processShards(ctx, *consumerArn)
+	if err != nil {
+		return err
 	}
-	bar.Finish()
 
 	fmt.Print(color.YellowString("Generating output..."))
 	err = c.output.Write(output)
@@ -97,6 +77,7 @@ func (c *CMD) Start(ctx context.Context) error {
 		return err
 	}
 	color.Yellow("OK!")
+
 	return nil
 }
 
@@ -108,6 +89,34 @@ func (c *CMD) deregisterConsumer(streamArn, consumerArn *string) {
 	} else {
 		color.Yellow("OK!")
 	}
+}
+
+func (c *CMD) processShards(ctx context.Context, consumerArn string) ([]*service.ProcessOutput, error) {
+	var (
+		output   []*service.ProcessOutput
+		bar      *pb.ProgressBar
+		err      error
+		shardIDs []string
+	)
+	if len(c.shardIDs) > 0 {
+		bar = pb.StartNew(len(c.shardIDs))
+		shardIDs = c.shardIDs
+	} else {
+		fmt.Print(color.YellowString("Listing shards for stream %s...", c.streamName))
+		sids, l, err := c.discover.ParentShards(ctx)
+		if err != nil {
+			return nil, err
+		}
+		color.Yellow(" OK!")
+		shardIDs = sids
+		bar = pb.StartNew(l)
+	}
+	defer bar.Finish()
+	output, err = c.processor.Process(ctx, consumerArn, shardIDs, len(c.shardIDs) == 0, func() { bar.Increment() })
+	if err != nil {
+		return nil, err
+	}
+	return output, nil
 }
 
 type discover interface {
