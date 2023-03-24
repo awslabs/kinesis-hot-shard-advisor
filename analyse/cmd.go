@@ -67,7 +67,7 @@ func (c *CMD) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer c.efo.DeregisterConsumer(streamArn, consumerArn)
+	defer c.deregisterConsumer(streamArn, consumerArn)
 	color.Yellow(": %s OK!\n", *consumerArn)
 
 	if len(c.shardIDs) > 0 {
