@@ -23,6 +23,7 @@ type ShardProcessor struct {
 	aggregatorBuilder AggregatorBuilder
 	start             time.Time
 	end               time.Time
+	streamExtractor   streamExtractor
 }
 
 func NewShardProcessor(kds KDS, aggregatorBuilder AggregatorBuilder, start, end time.Time) *ShardProcessor {
@@ -31,17 +32,24 @@ func NewShardProcessor(kds KDS, aggregatorBuilder AggregatorBuilder, start, end 
 		aggregatorBuilder: aggregatorBuilder,
 		start:             start,
 		end:               end,
+		streamExtractor: func(stso *kinesis.SubscribeToShardOutput) <-chan types.SubscribeToShardEventStream {
+			return stso.GetStream().Events()
+		},
 	}
 }
 
 func (p *ShardProcessor) Process(ctx context.Context, consumerArn string, parentShardIDs []string, children bool, progress func()) ([]*ProcessOutput, error) {
+	return p.aggregateAll(ctx, consumerArn, parentShardIDs, children, progress, p.aggregateShard)
+}
+
+func (p *ShardProcessor) aggregateAll(ctx context.Context, consumerArn string, parentShardIDs []string, children bool, progress func(), reader shardReader) ([]*ProcessOutput, error) {
 	var err error
 	resultsChan := make(chan *ProcessOutput)
 	pendingEnumerations := len(parentShardIDs)
 	aggregatedShards := make([]*ProcessOutput, 0)
 
 	for _, shardID := range parentShardIDs {
-		go p.aggregateShard(ctx, resultsChan, shardID, consumerArn)
+		go reader(ctx, resultsChan, shardID, consumerArn)
 	}
 
 	for pendingEnumerations > 0 {
@@ -53,7 +61,7 @@ func (p *ShardProcessor) Process(ctx context.Context, consumerArn string, parent
 			if children {
 				for _, cs := range r.childShards {
 					pendingEnumerations++
-					go p.aggregateShard(ctx, resultsChan, *cs.ShardId, consumerArn)
+					go reader(ctx, resultsChan, *cs.ShardId, consumerArn)
 				}
 			}
 		} else {
@@ -98,10 +106,11 @@ func (p *ShardProcessor) aggregateShard(ctx context.Context, resultsChan chan<- 
 			resultsChan <- &ProcessOutput{err: err}
 			return
 		}
+		stream := p.streamExtractor(subscription)
 		subscribed := true
 		for subscribed {
 			select {
-			case event, ok := <-subscription.GetStream().Events():
+			case event, ok := <-stream:
 				if !ok {
 					subscribed = false
 				} else {
@@ -136,3 +145,6 @@ func (p *ShardProcessor) aggregateShard(ctx context.Context, resultsChan chan<- 
 		}
 	}
 }
+
+type shardReader func(context.Context, chan<- *ProcessOutput, string, string)
+type streamExtractor func(*kinesis.SubscribeToShardOutput) <-chan types.SubscribeToShardEventStream
