@@ -27,8 +27,9 @@ func Test_aggregateAll(t *testing.T) {
 	cases := []testCase{
 		{Name: "No shards with children and enumeration is required", ShardIDs: []string{"a", "b"}, EnumerateChildren: true, Expect: []string{"a", "b"}},
 		{Name: "No shards with children and enumeration is not required", ShardIDs: []string{"a", "b"}, EnumerateChildren: false, Expect: []string{"a", "b"}},
-		{Name: "Shards with children and enumeration is required", ShardIDs: []string{"a", "b"}, EnumerateChildren: true, ChildShards: map[string][]types.ChildShard{"a": {{ShardId: aws.String("c")}, {ShardId: aws.String("d")}}}, Expect: []string{"a", "b", "c", "d"}},
-		{Name: "Shards with children and enumeration is not required", ShardIDs: []string{"a", "b"}, EnumerateChildren: false, ChildShards: map[string][]types.ChildShard{"a": {{ShardId: aws.String("c")}, {ShardId: aws.String("d")}}}, Expect: []string{"a", "b"}},
+		{Name: "Shards with children and enumeration is required", ShardIDs: []string{"a", "b"}, EnumerateChildren: true, ChildShards: map[string][]types.ChildShard{"a": {{ShardId: aws.String("c"), ParentShards: []string{"a"}}, {ShardId: aws.String("d"), ParentShards: []string{"a"}}}}, Expect: []string{"a", "b", "c", "d"}},
+		{Name: "Shards with children and enumeration is not required", ShardIDs: []string{"a", "b"}, EnumerateChildren: false, ChildShards: map[string][]types.ChildShard{"a": {{ShardId: aws.String("c"), ParentShards: []string{"a"}}, {ShardId: aws.String("d"), ParentShards: []string{"a"}}}}, Expect: []string{"a", "b"}},
+		{Name: "Shards with a merged child and enumeration is required", ShardIDs: []string{"a", "b"}, EnumerateChildren: true, ChildShards: map[string][]types.ChildShard{"a": {{ShardId: aws.String("c"), ParentShards: []string{"a", "b"}}}, "b": {{ShardId: aws.String("c"), ParentShards: []string{"a", "b"}}}}, Expect: []string{"a", "b", "c"}},
 	}
 
 	for i, c := range cases {

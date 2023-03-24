@@ -47,6 +47,7 @@ func (p *ShardProcessor) aggregateAll(ctx context.Context, consumerArn string, p
 	resultsChan := make(chan *ProcessOutput)
 	pendingEnumerations := len(parentShardIDs)
 	aggregatedShards := make([]*ProcessOutput, 0)
+	aggregatedChildren := make(map[string]bool)
 
 	for _, shardID := range parentShardIDs {
 		go reader(ctx, resultsChan, shardID, consumerArn)
@@ -60,8 +61,11 @@ func (p *ShardProcessor) aggregateAll(ctx context.Context, consumerArn string, p
 			aggregatedShards = append(aggregatedShards, r)
 			if children {
 				for _, cs := range r.childShards {
-					pendingEnumerations++
-					go reader(ctx, resultsChan, *cs.ShardId, consumerArn)
+					if _, ok := aggregatedChildren[*cs.ShardId]; !ok {
+						aggregatedChildren[*cs.ShardId] = true
+						pendingEnumerations++
+						go reader(ctx, resultsChan, *cs.ShardId, consumerArn)
+					}
 				}
 			}
 		} else {
