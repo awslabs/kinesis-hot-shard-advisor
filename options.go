@@ -11,14 +11,7 @@ import (
 )
 
 type options struct {
-	Stream string
-	Limit  int
-	Top    int
-	CMS    bool
-	Start  string
-	End    string
-	Out    string
-	SIDs   string
+	MaxWorkers    int
 }
 
 func (o *options) Validate() bool {

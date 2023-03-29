@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/awslabs/kinesis-hot-shard-advisor/analyse/mocks"
 	"github.com/awslabs/kinesis-hot-shard-advisor/analyse/service"
@@ -22,8 +23,10 @@ func TestStartForFailureInRegisterEFOConsumer(t *testing.T) {
 
 	efo := mocks.NewMockefo(ctrl)
 	efo.EXPECT().EnsureEFOConsumer(ctx).Return(nil, nil, e)
+	start := time.Now()
+	end := start.Add(time.Second * 10)
 
-	cmd := newCMD(streamName, nil, nil, efo, nil, nil)
+	cmd := newCMD(streamName, nil, start, end, 1, nil, efo, nil, nil)
 
 	// Act
 	err := cmd.Start(ctx)
@@ -47,6 +50,9 @@ func TestStartForProcessingSpecificShardIDs(t *testing.T) {
 	efo.EXPECT().DeregisterConsumer(&streamArn, &consumerArn).Return(error(nil))
 
 	shardIDs := []string{"a", "b"}
+	start := time.Now()
+	end := start.Add(time.Second * 10)
+	maxWorkers := 1
 	po := []*service.ProcessOutput{{ShardID: "a"}, {ShardID: "b"}}
 	processor := mocks.NewMockshardProcessor(ctrl)
 	processor.EXPECT().Process(ctx, consumerArn, shardIDs, false, gomock.Any()).Return(po, error(nil))
@@ -54,7 +60,7 @@ func TestStartForProcessingSpecificShardIDs(t *testing.T) {
 	output := mocks.NewMockoutput(ctrl)
 	output.EXPECT().Write(po).Return(error(nil))
 
-	cmd := newCMD(streamName, shardIDs, nil, efo, output, processor)
+	cmd := newCMD(streamName, shardIDs, start, end, maxWorkers, nil, efo, output, processor)
 
 	// Act
 	err := cmd.Start(ctx)
@@ -78,6 +84,9 @@ func TestStartProcessingEmptyListOfShardIDs(t *testing.T) {
 	efo.EXPECT().DeregisterConsumer(&streamArn, &consumerArn).Return(error(nil))
 
 	shardIDs := []string{"a", "b"}
+	start := time.Now()
+	end := start.Add(time.Second * 10)
+	maxWorkers := 1
 	discover := mocks.NewMockdiscover(ctrl)
 	discover.EXPECT().ParentShards(ctx).Return(shardIDs, len(shardIDs), error(nil))
 
@@ -88,7 +97,7 @@ func TestStartProcessingEmptyListOfShardIDs(t *testing.T) {
 	output := mocks.NewMockoutput(ctrl)
 	output.EXPECT().Write(po).Return(error(nil))
 
-	cmd := newCMD(streamName, make([]string, 0), discover, efo, output, processor)
+	cmd := newCMD(streamName, make([]string, 0), start, end, maxWorkers, discover, efo, output, processor)
 
 	// Act
 	err := cmd.Start(ctx)
@@ -112,6 +121,9 @@ func TestStartForFailureToWriteOutput(t *testing.T) {
 	efo.EXPECT().DeregisterConsumer(&streamArn, &consumerArn).Return(error(nil))
 
 	shardIDs := []string{"a", "b"}
+	start := time.Now()
+	end := start.Add(time.Second * 10)
+	maxWorkers := 1
 	po := []*service.ProcessOutput{{ShardID: "a"}, {ShardID: "b"}}
 	processor := mocks.NewMockshardProcessor(ctrl)
 	processor.EXPECT().Process(ctx, consumerArn, shardIDs, false, gomock.Any()).Return(po, error(nil))
@@ -120,7 +132,7 @@ func TestStartForFailureToWriteOutput(t *testing.T) {
 	output := mocks.NewMockoutput(ctrl)
 	output.EXPECT().Write(po).Return(e)
 
-	cmd := newCMD(streamName, shardIDs, nil, efo, output, processor)
+	cmd := newCMD(streamName, shardIDs, start, end, maxWorkers, nil, efo, output, processor)
 
 	// Act
 	err := cmd.Start(ctx)

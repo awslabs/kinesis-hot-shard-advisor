@@ -24,9 +24,10 @@ type ShardProcessor struct {
 	start             time.Time
 	end               time.Time
 	streamExtractor   streamExtractor
+	maxWorkers        int
 }
 
-func NewShardProcessor(kds KDS, aggregatorBuilder AggregatorBuilder, start, end time.Time) *ShardProcessor {
+func NewShardProcessor(kds KDS, aggregatorBuilder AggregatorBuilder, start, end time.Time, maxWorkers int) *ShardProcessor {
 	return &ShardProcessor{
 		kds:               kds,
 		aggregatorBuilder: aggregatorBuilder,
@@ -35,6 +36,7 @@ func NewShardProcessor(kds KDS, aggregatorBuilder AggregatorBuilder, start, end 
 		streamExtractor: func(stso *kinesis.SubscribeToShardOutput) <-chan types.SubscribeToShardEventStream {
 			return stso.GetStream().Events()
 		},
+		maxWorkers: maxWorkers,
 	}
 }
 
@@ -46,11 +48,16 @@ func (p *ShardProcessor) aggregateAll(ctx context.Context, consumerArn string, p
 	var err error
 	resultsChan := make(chan *ProcessOutput)
 	pendingEnumerations := len(parentShardIDs)
-	aggregatedShards := make([]*ProcessOutput, 0)
-	aggregatedChildren := make(map[string]bool)
+	output := make([]*ProcessOutput, 0)
+	seenShardIDs := make(map[string]bool)
+	scheduler := newAsyncScheduler(p.maxWorkers)
 
 	for _, shardID := range parentShardIDs {
-		go reader(ctx, resultsChan, shardID, consumerArn)
+		shardID := shardID
+		seenShardIDs[shardID] = true
+		scheduler.Go(func() {
+			reader(ctx, resultsChan, shardID, consumerArn)
+		})
 	}
 
 	for pendingEnumerations > 0 {
@@ -58,13 +65,16 @@ func (p *ShardProcessor) aggregateAll(ctx context.Context, consumerArn string, p
 		pendingEnumerations--
 		progress()
 		if r.err == nil {
-			aggregatedShards = append(aggregatedShards, r)
+			output = append(output, r)
 			if children {
 				for _, cs := range r.childShards {
-					if _, ok := aggregatedChildren[*cs.ShardId]; !ok {
-						aggregatedChildren[*cs.ShardId] = true
+					shardID := *cs.ShardId
+					if _, ok := seenShardIDs[shardID]; !ok {
+						seenShardIDs[shardID] = true
 						pendingEnumerations++
-						go reader(ctx, resultsChan, *cs.ShardId, consumerArn)
+						scheduler.Go(func() {
+							reader(ctx, resultsChan, shardID, consumerArn)
+						})
 					}
 				}
 			}
@@ -74,11 +84,7 @@ func (p *ShardProcessor) aggregateAll(ctx context.Context, consumerArn string, p
 	}
 
 	close(resultsChan)
-
-	if err != nil {
-		return nil, err
-	}
-	return aggregatedShards, nil
+	return output, err
 }
 
 func (p *ShardProcessor) aggregateShard(ctx context.Context, resultsChan chan<- *ProcessOutput, shardID, consumerArn string) {

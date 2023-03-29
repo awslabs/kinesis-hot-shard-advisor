@@ -25,23 +25,30 @@ type CMD struct {
 	efo        efo
 	output     output
 	processor  shardProcessor
+	maxWorkers int
 }
 
-func NewCMD(streamName string, kds service.KDS, reporter service.Reporter, aggregatorBuilder service.AggregatorBuilder, limit, top int, start, end time.Time, shardIDs []string) *CMD {
+func NewCMD(streamName string, kds service.KDS, reporter service.Reporter, aggregatorBuilder service.AggregatorBuilder, limit, top int, start, end time.Time, shardIDs []string, maxWorkers int) *CMD {
 	return newCMD(
 		streamName,
 		shardIDs,
+		start,
+		end,
+		maxWorkers,
 		service.NewDiscover(streamName, kds),
 		service.NewEFO(streamName, efoConsumerName, kds),
 		service.NewOutput(start, limit, top, reporter),
-		service.NewShardProcessor(kds, aggregatorBuilder, start, end),
+		service.NewShardProcessor(kds, aggregatorBuilder, start, end, maxWorkers),
 	)
 }
 
-func newCMD(streamName string, shardIDs []string, discover discover, efo efo, output output, processor shardProcessor) *CMD {
+func newCMD(streamName string, shardIDs []string, start, end time.Time, maxWorkers int, discover discover, efo efo, output output, processor shardProcessor) *CMD {
 	return &CMD{
 		streamName: streamName,
 		shardIDs:   shardIDs,
+		start:      start,
+		end:        end,
+		maxWorkers: maxWorkers,
 		discover:   discover,
 		efo:        efo,
 		output:     output,

@@ -32,6 +32,7 @@ func init() {
 	flag.StringVar(&opts.Out, "out", "out.html", "Path to output file (Optional). Default is out.html.")
 	flag.StringVar(&opts.SIDs, "shard-ids", "", "Comma separated list of shard ids to analyse.")
 	flag.IntVar(&opts.Top, "top", 10, "Number of shards to emit to the report(Optional). Use 0 to emit all shards. Emitting all shards can result in a large file that may take a lot of system resources to view in the browser.")
+	flag.IntVar(&opts.MaxWorkers, "max-workers", 100, "Maximum number of workers to read shards concurrently. Set value accordingly to optimise host's resource utilisation")
 }
 
 func aggregatorBuilder(start, end time.Time) func() []service.Aggregator {
@@ -93,7 +94,8 @@ func main() {
 		opts.Top,
 		start,
 		end,
-		opts.ShardIDs())
+		opts.ShardIDs(),
+		opts.MaxWorkers)
 	err = cmd.Start(ctx)
 	if err != nil {
 		fmt.Println(err)
