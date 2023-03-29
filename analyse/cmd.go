@@ -100,9 +100,7 @@ func (c *CMD) deregisterConsumer(streamArn, consumerArn *string) {
 
 func (c *CMD) processShards(ctx context.Context, consumerArn string) ([]*service.ProcessOutput, error) {
 	var (
-		output   []*service.ProcessOutput
 		bar      *pb.ProgressBar
-		err      error
 		shardIDs []string
 	)
 	if len(c.shardIDs) > 0 {
@@ -119,11 +117,7 @@ func (c *CMD) processShards(ctx context.Context, consumerArn string) ([]*service
 		bar = pb.StartNew(l)
 	}
 	defer bar.Finish()
-	output, err = c.processor.Process(ctx, consumerArn, shardIDs, len(c.shardIDs) == 0, func() { bar.Increment() })
-	if err != nil {
-		return nil, err
-	}
-	return output, nil
+	return c.processor.Process(ctx, consumerArn, shardIDs, len(c.shardIDs) == 0, func() { bar.Increment() })
 }
 
 type discover interface {
