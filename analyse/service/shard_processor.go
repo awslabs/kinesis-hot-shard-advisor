@@ -24,6 +24,7 @@ type ShardProcessor struct {
 	start             time.Time
 	end               time.Time
 	streamExtractor   streamExtractor
+	streamCloser      streamCloser
 	maxWorkers        int
 }
 
@@ -35,6 +36,11 @@ func NewShardProcessor(kds KDS, aggregatorBuilder AggregatorBuilder, start, end 
 		end:               end,
 		streamExtractor: func(stso *kinesis.SubscribeToShardOutput) <-chan types.SubscribeToShardEventStream {
 			return stso.GetStream().Events()
+		},
+		streamCloser: func(stso *kinesis.SubscribeToShardOutput) {
+			// Discard the error because there's nothing
+			// we can do about it.
+			stso.GetStream().Close()
 		},
 		maxWorkers: maxWorkers,
 	}
@@ -117,6 +123,7 @@ func (p *ShardProcessor) aggregateShard(ctx context.Context, resultsChan chan<- 
 			return
 		}
 		stream := p.streamExtractor(subscription)
+		defer p.streamCloser(subscription)
 		subscribed := true
 		for subscribed {
 			select {
@@ -158,3 +165,4 @@ func (p *ShardProcessor) aggregateShard(ctx context.Context, resultsChan chan<- 
 
 type shardReader func(context.Context, chan<- *ProcessOutput, string, string)
 type streamExtractor func(*kinesis.SubscribeToShardOutput) <-chan types.SubscribeToShardEventStream
+type streamCloser func(*kinesis.SubscribeToShardOutput)
