@@ -26,26 +26,29 @@ var opts = &options{}
 func init() {
 	flag.StringVar(&opts.Stream, "stream", "", "Stream name")
 	flag.IntVar(&opts.Limit, "limit", 10, "Number of keys to output in key distribution graph (Optional).")
-	flag.BoolVar(&opts.CMS, "cms", false, "Use count-min-sketch (Optional) algorithm for counting key distribution (Optional). Default is false. Use this method to avoid OOM condition when analysing busy streams with high cardinality.")
+	flag.BoolVar(&opts.CMS, "cms", true, "Use count-min-sketch (Optional) algorithm for counting key distribution (Optional). Default is false. Use this method to avoid OOM condition when analysing busy streams with high cardinality.")
 	flag.StringVar(&opts.Start, "from", "", "Start time in yyyy-mm-dd hh:mm format (Optional). Default value is current time - 5 minutes.")
 	flag.StringVar(&opts.End, "to", "", "End time in yyyy-mm-dd hh:mm format (Optional). Default value is current time.")
 	flag.StringVar(&opts.Out, "out", "out.html", "Path to output file (Optional). Default is out.html.")
 	flag.StringVar(&opts.SIDs, "shard-ids", "", "Comma separated list of shard ids to analyse.")
 	flag.IntVar(&opts.Top, "top", 10, "Number of shards to emit to the report(Optional). Use 0 to emit all shards. Emitting all shards can result in a large file that may take a lot of system resources to view in the browser.")
 	flag.IntVar(&opts.MaxWorkers, "max-workers", 100, "Maximum number of workers to read shards concurrently. Set value accordingly to optimise host's resource utilisation")
+	flag.BoolVar(&opts.AggregateKeys, "aggregate-keys", false, "Use this flag to aggregate keys.")
 }
 
 func aggregatorBuilder(start, end time.Time) func() []service.Aggregator {
 	return func() []service.Aggregator {
 		aggregators := make([]service.Aggregator, 0)
-		if opts.CMS {
-			c, err := aggregator.NewCMSByKey(5, 10000, opts.Limit)
-			if err != nil {
-				panic(err)
+		if opts.AggregateKeys {
+			if opts.CMS {
+				c, err := aggregator.NewCMSByKey(5, 10000, opts.Limit)
+				if err != nil {
+					panic(err)
+				}
+				aggregators = append(aggregators, c)
+			} else {
+				aggregators = append(aggregators, aggregator.NewCountByKey())
 			}
-			aggregators = append(aggregators, c)
-		} else {
-			aggregators = append(aggregators, aggregator.NewCountByKey())
 		}
 		aggregators = append(aggregators, aggregator.NewBytesPerSecond(start, end), aggregator.NewCountPerSecond(start, end))
 		return aggregators
