@@ -82,7 +82,36 @@ func Test_aggregateAllWhenAggregatorFails(t *testing.T) {
 
 	// Assert
 	assert.Equal(t, e, err)
-	assert.Nil(t, output)
+	assert.Empty(t, output)
+}
+
+func Test_aggregateAllWhenAggregatorFailsForSomeShards(t *testing.T) {
+	// Arrange
+	ctx := context.TODO()
+	consumerArn := uuid.NewString()
+	end := time.Now()
+	start := end.Add(time.Minute * -1)
+	shardIDs := []string{"a", "b"}
+	e := errors.New("failed")
+
+	p := NewShardProcessor(nil, nil, start, end, 1)
+
+	// Act
+	output, err := p.aggregateAll(ctx, consumerArn, shardIDs, false, func() {}, func(ctx context.Context, c chan<- *ProcessOutput, shardID, ca string) {
+		if shardID == "a" {
+			c <- &ProcessOutput{
+				ShardID:     shardID,
+				Aggregators: make([]Aggregator, 0),
+			}
+		} else {
+			c <- &ProcessOutput{err: e}
+		}
+	})
+
+	// Assert
+	assert.Equal(t, e, err)
+	assert.Equal(t, "a", output[0].ShardID)
+	assert.Len(t, output, 1)
 }
 
 func Test_aggregateShard(t *testing.T) {
@@ -176,8 +205,11 @@ func Test_aggregateShard(t *testing.T) {
 
 			p := NewShardProcessor(kds, func() []Aggregator { return []Aggregator{aggregator} }, start, end, 1)
 			p.streamExtractor = func(stso *kinesis.SubscribeToShardOutput) <-chan types.SubscribeToShardEventStream {
-				assert.Equal(t, subscribeToShardOutput, stso)
+				assert.Same(t, subscribeToShardOutput, stso)
 				return stream
+			}
+			p.streamCloser = func(stso *kinesis.SubscribeToShardOutput) {
+				assert.Same(t, subscribeToShardOutput, stso)
 			}
 
 			// Act
@@ -232,13 +264,20 @@ func Test_aggregateShardWhenSubscriptionExpiresBeforeAnyRecords(t *testing.T) {
 			return subscription2, nil
 		})
 
+	extractorOutput := []chan types.SubscribeToShardEventStream{stream1, stream2}
+	extractorInput := []*kinesis.SubscribeToShardOutput{subscription1, subscription2}
+	closerInput := []*kinesis.SubscribeToShardOutput{subscription2, subscription1}
 	p := NewShardProcessor(kds, func() []Aggregator { return []Aggregator{} }, start, end, 1)
 	p.streamExtractor = func(stso *kinesis.SubscribeToShardOutput) <-chan types.SubscribeToShardEventStream {
-		assert.Equal(t, expectedSubscription, stso)
-		s := nextStream
-		expectedSubscription = subscription2
-		nextStream = stream2
+		assert.Same(t, extractorInput[0], stso)
+		s := extractorOutput[0]
+		extractorInput = extractorInput[1:]
+		extractorOutput = extractorOutput[1:]
 		return s
+	}
+	p.streamCloser = func(stso *kinesis.SubscribeToShardOutput) {
+		assert.Same(t, closerInput[0], stso)
+		closerInput = closerInput[1:]
 	}
 
 	// Act
@@ -254,6 +293,8 @@ func Test_aggregateShardWhenSubscriptionExpiresBeforeAnyRecords(t *testing.T) {
 	// Assert
 	assert.Equal(t, shardID, o.ShardID)
 	assert.NoError(t, o.err)
+	assert.Empty(t, extractorInput) // Ensure all calls to extractor have been made
+	assert.Empty(t, closerInput)    // Ensure that all stream handles disposed
 }
 
 func Test_aggregateShardWhenSubscriptionExpiresAfterReadingSomeRecords(t *testing.T) {
@@ -293,13 +334,20 @@ func Test_aggregateShardWhenSubscriptionExpiresAfterReadingSomeRecords(t *testin
 			return subscription2, nil
 		})
 
+	extractorOutput := []chan types.SubscribeToShardEventStream{stream1, stream2}
+	extractorInput := []*kinesis.SubscribeToShardOutput{subscription1, subscription2}
+	closerInput := []*kinesis.SubscribeToShardOutput{subscription2, subscription1}
 	p := NewShardProcessor(kds, func() []Aggregator { return []Aggregator{} }, start, end, 1)
 	p.streamExtractor = func(stso *kinesis.SubscribeToShardOutput) <-chan types.SubscribeToShardEventStream {
-		assert.Equal(t, expectedSubscription, stso)
-		s := nextStream
-		expectedSubscription = subscription2
-		nextStream = stream2
+		assert.Same(t, extractorInput[0], stso)
+		s := extractorOutput[0]
+		extractorInput = extractorInput[1:]
+		extractorOutput = extractorOutput[1:]
 		return s
+	}
+	p.streamCloser = func(stso *kinesis.SubscribeToShardOutput) {
+		assert.Same(t, closerInput[0], stso)
+		closerInput = closerInput[1:]
 	}
 
 	// Act
@@ -322,6 +370,8 @@ func Test_aggregateShardWhenSubscriptionExpiresAfterReadingSomeRecords(t *testin
 	// Assert
 	assert.Equal(t, shardID, o.ShardID)
 	assert.NoError(t, o.err)
+	assert.Empty(t, extractorInput) // Ensure all calls to extractor have been made
+	assert.Empty(t, closerInput)    // Ensure that all streams handles are disposed
 }
 
 func Test_aggregateShardWhenSubscriptionFailsOnContinuationAfterExpiry(t *testing.T) {
@@ -362,8 +412,11 @@ func Test_aggregateShardWhenSubscriptionFailsOnContinuationAfterExpiry(t *testin
 
 	p := NewShardProcessor(kds, func() []Aggregator { return []Aggregator{} }, start, end, 1)
 	p.streamExtractor = func(stso *kinesis.SubscribeToShardOutput) <-chan types.SubscribeToShardEventStream {
-		assert.Equal(t, subscription, stso)
+		assert.Same(t, subscription, stso)
 		return stream
+	}
+	p.streamCloser = func(stso *kinesis.SubscribeToShardOutput) {
+		assert.Same(t, subscription, stso)
 	}
 
 	// Act
