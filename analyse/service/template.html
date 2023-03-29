@@ -109,7 +109,9 @@
                 renderIngressBytesGraph(shard.shardId, shard.stats['ingress-bytes'].timeSeries.map((_, i) => new Date((startTime + i) * 1000)), shard.stats['ingress-bytes'].timeSeries.map((v, _) => v / 1024/ 1024));
                 renderIngressCountGraph(shard.shardId, shard.stats['ingress-count'].timeSeries.map((_, i) => new Date((startTime + i) * 1000)), shard.stats['ingress-count'].timeSeries.map((v, _) => v));
                 var countStat = shard.stats['count'] || shard.stats['cms'] || [];
-                renderCountGraph(shard.shardId, countStat.slice(0, options.limit).map(i => i.partitionKey), countStat.slice(0, options.limit).map(i => i.count));
+                if (countStat.length > 0) {
+                    renderCountGraph(shard.shardId, countStat.slice(0, options.limit).map(i => i.partitionKey), countStat.slice(0, options.limit).map(i => i.count));
+                }
             }
         }
 
