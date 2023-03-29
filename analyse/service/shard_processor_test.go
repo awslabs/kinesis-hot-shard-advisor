@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/awslabs/kinesis-hot-shard-advisor/analyse/service/mocks"
 	"github.com/golang/mock/gomock"
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -81,7 +81,7 @@ func Test_aggregateAllWhenAggregatorFails(t *testing.T) {
 	})
 
 	// Assert
-	assert.Equal(t, e, err)
+	assert.Equal(t, errors.WithMessage(e, "2 shards failed"), err)
 	assert.Empty(t, output)
 }
 
@@ -109,7 +109,7 @@ func Test_aggregateAllWhenAggregatorFailsForSomeShards(t *testing.T) {
 	})
 
 	// Assert
-	assert.Equal(t, e, err)
+	assert.Equal(t, errors.WithMessage(e, "1 shards failed"), err)
 	assert.Equal(t, "a", output[0].ShardID)
 	assert.Len(t, output, 1)
 }
