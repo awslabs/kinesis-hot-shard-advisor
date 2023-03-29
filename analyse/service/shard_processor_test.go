@@ -40,7 +40,7 @@ func Test_aggregateAll(t *testing.T) {
 			end := time.Now()
 			start := end.Add(time.Minute * -1)
 
-			p := NewShardProcessor(nil, nil, start, end)
+			p := NewShardProcessor(nil, nil, start, end, 1)
 			tc := cases[i]
 
 			// Act
@@ -73,7 +73,7 @@ func Test_aggregateAllWhenAggregatorFails(t *testing.T) {
 	shardIDs := []string{"a", "b"}
 	e := errors.New("failed")
 
-	p := NewShardProcessor(nil, nil, start, end)
+	p := NewShardProcessor(nil, nil, start, end, 1)
 
 	// Act
 	output, err := p.aggregateAll(ctx, consumerArn, shardIDs, false, func() {}, func(ctx context.Context, c chan<- *ProcessOutput, shardID, ca string) {
@@ -174,7 +174,7 @@ func Test_aggregateShard(t *testing.T) {
 					return subscribeToShardOutput, nil
 				})
 
-			p := NewShardProcessor(kds, func() []Aggregator { return []Aggregator{aggregator} }, start, end)
+			p := NewShardProcessor(kds, func() []Aggregator { return []Aggregator{aggregator} }, start, end, 1)
 			p.streamExtractor = func(stso *kinesis.SubscribeToShardOutput) <-chan types.SubscribeToShardEventStream {
 				assert.Equal(t, subscribeToShardOutput, stso)
 				return stream
@@ -232,9 +232,7 @@ func Test_aggregateShardWhenSubscriptionExpiresBeforeAnyRecords(t *testing.T) {
 			return subscription2, nil
 		})
 
-	expectedSubscription := subscription1
-	nextStream := stream1
-	p := NewShardProcessor(kds, func() []Aggregator { return []Aggregator{} }, start, end)
+	p := NewShardProcessor(kds, func() []Aggregator { return []Aggregator{} }, start, end, 1)
 	p.streamExtractor = func(stso *kinesis.SubscribeToShardOutput) <-chan types.SubscribeToShardEventStream {
 		assert.Equal(t, expectedSubscription, stso)
 		s := nextStream
@@ -295,9 +293,7 @@ func Test_aggregateShardWhenSubscriptionExpiresAfterReadingSomeRecords(t *testin
 			return subscription2, nil
 		})
 
-	expectedSubscription := subscription1
-	nextStream := stream1
-	p := NewShardProcessor(kds, func() []Aggregator { return []Aggregator{} }, start, end)
+	p := NewShardProcessor(kds, func() []Aggregator { return []Aggregator{} }, start, end, 1)
 	p.streamExtractor = func(stso *kinesis.SubscribeToShardOutput) <-chan types.SubscribeToShardEventStream {
 		assert.Equal(t, expectedSubscription, stso)
 		s := nextStream
@@ -364,7 +360,7 @@ func Test_aggregateShardWhenSubscriptionFailsOnContinuationAfterExpiry(t *testin
 			return nil, e
 		})
 
-	p := NewShardProcessor(kds, func() []Aggregator { return []Aggregator{} }, start, end)
+	p := NewShardProcessor(kds, func() []Aggregator { return []Aggregator{} }, start, end, 1)
 	p.streamExtractor = func(stso *kinesis.SubscribeToShardOutput) <-chan types.SubscribeToShardEventStream {
 		assert.Equal(t, subscription, stso)
 		return stream
