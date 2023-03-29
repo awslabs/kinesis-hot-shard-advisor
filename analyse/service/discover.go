@@ -67,11 +67,9 @@ func (d *Discover) ParentShards(ctx context.Context) ([]string, int, error) {
 		// it does not have a ParentShardId or
 		// ParentShardId is expired
 		// (therefore not returned via ListShards).
-		hasNonExpiredParent := false
-		if shard.ParentShardId != nil {
-			_, hasNonExpiredParent = shardsSet[*shard.ParentShardId]
-		}
-		if !hasNonExpiredParent {
+		if shard.ParentShardId == nil {
+			r = append(r, *shard.ShardId)
+		} else if _, ok := shardsSet[*shard.ParentShardId]; !ok {
 			r = append(r, *shard.ShardId)
 		}
 	}
