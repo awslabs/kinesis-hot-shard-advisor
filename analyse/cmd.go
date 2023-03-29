@@ -75,7 +75,7 @@ func (c *CMD) Start(ctx context.Context) error {
 
 	output, err := c.processShards(ctx, *consumerArn)
 	if err != nil {
-		return err
+		color.Magenta("Errors detected while processing one or more shards. Report may not be complete: %v", err)
 	}
 
 	fmt.Print(color.YellowString("Generating output..."))
