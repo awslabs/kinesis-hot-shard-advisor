@@ -9,6 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/kinesis"
 	"github.com/aws/aws-sdk-go-v2/service/kinesis/types"
+	"github.com/pkg/errors"
 )
 
 type ProcessOutput struct {
@@ -57,6 +58,7 @@ func (p *ShardProcessor) aggregateAll(ctx context.Context, consumerArn string, p
 	output := make([]*ProcessOutput, 0)
 	seenShardIDs := make(map[string]bool)
 	scheduler := newAsyncScheduler(p.maxWorkers)
+	numFailedShards := 0
 
 	for _, shardID := range parentShardIDs {
 		shardID := shardID
@@ -86,10 +88,14 @@ func (p *ShardProcessor) aggregateAll(ctx context.Context, consumerArn string, p
 			}
 		} else {
 			err = r.err
+			numFailedShards++
 		}
 	}
 
 	close(resultsChan)
+	if err != nil {
+		err = errors.WithMessagef(err, "%d shards failed", numFailedShards)
+	}
 	return output, err
 }
 
