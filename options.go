@@ -6,6 +6,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -86,4 +87,16 @@ func (o *options) ShardIDs() []string {
 		r[i] = strings.TrimSpace(s)
 	}
 	return r
+}
+
+func (o *options) CalculateMaxWorkers() int {
+	const defaultMaxWorkers = 128
+	if o.MaxWorkers == 0 {
+		w := runtime.NumCPU() * 8
+		if w < defaultMaxWorkers {
+			return w
+		}
+		return defaultMaxWorkers
+	}
+	return o.MaxWorkers
 }
