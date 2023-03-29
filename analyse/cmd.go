@@ -63,7 +63,7 @@ func newCMD(streamName string, shardIDs []string, start, end time.Time, maxWorke
 //   - Generate the output
 //   - Delete EFO consumer
 func (c *CMD) Start(ctx context.Context) error {
-	color.Green("Stream: %s\nFrom: %v\nTo: %v", c.streamName, c.start, c.end)
+	color.Green("Stream: %s\nFrom: %v\nTo: %v\nMaxWorkers: %d", c.streamName, c.start, c.end, c.maxWorkers)
 
 	fmt.Print(color.YellowString("Creating an EFO consumer..."))
 	streamArn, consumerArn, err := c.efo.EnsureEFOConsumer(ctx)
