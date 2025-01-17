@@ -435,3 +435,70 @@ func Test_aggregateShardWhenSubscriptionFailsOnContinuationAfterExpiry(t *testin
 	// Assert
 	assert.Equal(t, e, o.err)
 }
+
+func Test_aggregateShardWhenSubscriptionFailsWithAnException(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	type testCase struct {
+		Name          string
+		ShardID       string
+		ConsumerArn   string
+		S2SErrors     []error
+		ExpectedError error
+	}
+
+	testCases := []testCase{
+		{"Succeeds in first attempt", uuid.NewString(), uuid.NewString(), []error{nil}, nil},
+		{"Succeeds during retry", uuid.NewString(), uuid.NewString(), []error{&types.ResourceInUseException{}, nil}, nil},
+		{"Fails with RIU exception in both attempts", uuid.NewString(), uuid.NewString(), []error{&types.ResourceInUseException{}, &types.ResourceInUseException{}}, &types.ResourceInUseException{}},
+		{"First attempt fails with a non RIU error", uuid.NewString(), uuid.NewString(), []error{&types.LimitExceededException{}}, &types.LimitExceededException{}},
+		{"Second attempt fails with a non RIU error", uuid.NewString(), uuid.NewString(), []error{&types.ResourceInUseException{}, &types.LimitExceededException{}}, &types.LimitExceededException{}},
+	}
+
+	for _, tc := range testCases {
+		// Arrange
+		kds := mocks.NewMockKDS(ctrl)
+		ctx := context.TODO()
+		end := time.Now()
+		start := end.Add(time.Minute * -1)
+		results := make(chan *ProcessOutput)
+		streams := make(map[*kinesis.SubscribeToShardOutput]chan types.SubscribeToShardEventStream)
+		for _, err := range tc.S2SErrors {
+			var subscription *kinesis.SubscribeToShardOutput
+			// nil error configured in a test case means that we setup a successful response
+			// from S2S api call.
+			if err == nil {
+				subscription = &kinesis.SubscribeToShardOutput{}
+				stream := make(chan types.SubscribeToShardEventStream, 1)
+				stream <- &types.SubscribeToShardEventStreamMemberSubscribeToShardEvent{
+					Value: types.SubscribeToShardEvent{
+						Records:                    []types.Record{{PartitionKey: aws.String("a"), ApproximateArrivalTimestamp: &start}},
+						ContinuationSequenceNumber: nil,
+					},
+				}
+				close(stream)
+				streams[subscription] = stream
+			}
+			f := func(ctx context.Context, input *kinesis.SubscribeToShardInput, optFns ...func(kinesis.Options)) (*kinesis.SubscribeToShardOutput, error) {
+				assert.Equal(t, tc.ShardID, *input.ShardId)
+				assert.Equal(t, tc.ConsumerArn, *input.ConsumerARN)
+				return subscription, err
+			}
+			kds.EXPECT().SubscribeToShard(ctx, gomock.Any()).DoAndReturn(f)
+		}
+		p := NewShardProcessor(kds, func() []Aggregator { return []Aggregator{} }, start, end, 1)
+		p.streamExtractor = func(stso *kinesis.SubscribeToShardOutput) <-chan types.SubscribeToShardEventStream {
+			return streams[stso]
+		}
+		p.streamCloser = func(stso *kinesis.SubscribeToShardOutput) {
+		}
+
+		// Act
+		go p.aggregateShard(ctx, results, tc.ShardID, tc.ConsumerArn)
+		o := <-results
+
+		// Assert
+		assert.Equal(t, tc.ExpectedError, o.err, tc.Name)
+	}
+}
