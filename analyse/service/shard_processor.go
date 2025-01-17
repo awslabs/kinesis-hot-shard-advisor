@@ -119,11 +119,7 @@ func (p *ShardProcessor) aggregateShard(ctx context.Context, resultsChan chan<- 
 				SequenceNumber: continuationSequenceNumber,
 			}
 		}
-		subscription, err := p.kds.SubscribeToShard(ctx, &kinesis.SubscribeToShardInput{
-			ConsumerARN:      &consumerArn,
-			ShardId:          &shardID,
-			StartingPosition: startingPosition,
-		})
+		subscription, err := p.subscribeToShardWithRetry(ctx, consumerArn, shardID, startingPosition)
 		if err != nil {
 			resultsChan <- &ProcessOutput{err: err}
 			return
@@ -166,6 +162,33 @@ func (p *ShardProcessor) aggregateShard(ctx context.Context, resultsChan chan<- 
 				return
 			}
 		}
+	}
+}
+
+// subscribeToShardWithRetry method calls KDS SubscribeToShard with a simple
+// retry mechanism. Retry mechanism is in place to handle rare cases where
+// KDS responds to S2S API with a ResourceInUseException even after its status
+// has changed to Active.
+// When this happens we wait for some seconds and try again.
+// Retry is done only once because this condition should not last for too long.
+func (p *ShardProcessor) subscribeToShardWithRetry(ctx context.Context, consumerArn, shardID string, startingPosition *types.StartingPosition) (*kinesis.SubscribeToShardOutput, error) {
+	retried := false
+	for {
+		subscription, err := p.kds.SubscribeToShard(ctx, &kinesis.SubscribeToShardInput{
+			ConsumerARN:      &consumerArn,
+			ShardId:          &shardID,
+			StartingPosition: startingPosition,
+		})
+		if err != nil {
+			var riu *types.ResourceInUseException
+			if !errors.As(err, &riu) || retried {
+				return subscription, err
+			}
+			retried = true
+			time.Sleep(time.Second)
+			continue
+		}
+		return subscription, err
 	}
 }
 
