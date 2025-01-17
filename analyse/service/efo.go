@@ -12,7 +12,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/kinesis"
 	"github.com/aws/aws-sdk-go-v2/service/kinesis/types"
-	smithy "github.com/aws/smithy-go"
 	"github.com/fatih/color"
 )
 
@@ -45,20 +44,15 @@ func (e *EFO) EnsureEFOConsumer(ctx context.Context) (*string, *string, error) {
 			StreamARN:    stream.StreamDescriptionSummary.StreamARN,
 		})
 		if err != nil {
-			var apiErr smithy.APIError
-			if errors.As(err, &apiErr) {
-				if _, ok := apiErr.(*types.ResourceNotFoundException); ok {
-					_, err := e.kds.RegisterStreamConsumer(ctx, &kinesis.RegisterStreamConsumerInput{
-						ConsumerName: aws.String(e.efoConsumerName),
-						StreamARN:    stream.StreamDescriptionSummary.StreamARN,
-					})
-					if err != nil {
-						return nil, nil, err
-					}
-				} else {
-					return nil, nil, err
-				}
-			} else {
+			var rnf *types.ResourceNotFoundException
+			if !errors.As(err, &rnf) {
+				return nil, nil, err
+			}
+			_, err := e.kds.RegisterStreamConsumer(ctx, &kinesis.RegisterStreamConsumerInput{
+				ConsumerName: aws.String(e.efoConsumerName),
+				StreamARN:    stream.StreamDescriptionSummary.StreamARN,
+			})
+			if err != nil {
 				return nil, nil, err
 			}
 		} else {
