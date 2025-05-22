@@ -33,7 +33,7 @@ kinesis:DescribeStreamConsumer
 3. run the below command
 ```
 khs -stream=[YOUR STREAM NAME]] -from="yyyy-mm-dd hh:mm" -to="yyyy-mm-dd hh:mm"
-Example:  khs -stream=lab3 -from="2022-02-24 10:07" -to="2022-02-24 10:09" 
+Example:  khs -stream=lab3 -from="2022-02-24 10:07:00" -to="2022-02-24 10:09:00" 
 Note: The date range should be within the retention period of your Kinesis data streams.
 ```
 ## Output sample
@@ -53,7 +53,7 @@ Once you see the output as above, open the file pointed by `out` option (by defa
   -cms
     	Use count-min-sketch (Optional) algorithm for counting key distribution (Optional). Default is false. Use this method to avoid OOM condition when analysing busy streams with high cardinality.
   -from string
-    	Start time in yyyy-mm-dd hh:mm format (Optional). Default value is current time - 5 minutes.
+    	Start time in yyyy-mm-dd hh:mm:ss format (Optional). Default value is current time - 5 minutes.
   -limit int
     	Number of keys to output in key distribution graph (Optional). (default 10)
   -out string
@@ -63,7 +63,7 @@ Once you see the output as above, open the file pointed by `out` option (by defa
   -stream string
     	Stream name
   -to string
-    	End time in yyyy-mm-dd hh:mm format (Optional). Default value is current time.
+    	End time in yyyy-mm-dd hh:mm:ss format (Optional). Default value is current time.
   -top int
     	Number of shards to emit to the report(Optional). Use 0 to emit all shards. Emitting all shards can result in a large file that may take a lot of system resources to view in the browser. (default 10)
 ```
