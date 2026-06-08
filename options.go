@@ -66,7 +66,7 @@ func (o *options) Period() (time.Time, time.Time, error) {
 }
 
 func (o *options) parseTime(s string) (time.Time, error) {
-	d, err := time.ParseDuration(o.Start)
+	d, err := time.ParseDuration(s)
 	if err != nil {
 
 		t, err := time.ParseInLocation("2006-01-02 15:04:05", s, time.Local)
